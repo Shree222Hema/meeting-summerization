@@ -1,0 +1,35 @@
+# Node modules
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build
+
+# Python virtual environments
+backend/venv/
+backend/env/
+__pycache__/
+*.pyc
+
+# Database and Vector DB
+backend/meeting_db.sqlite
+backend/chroma_db/
+
+# Temp files
+backend/temp_*
+backend/temp_download*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

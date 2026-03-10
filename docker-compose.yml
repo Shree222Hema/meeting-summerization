@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: meeting_db
+    environment:
+      POSTGRES_USER: meeting_user
+      POSTGRES_PASSWORD: meeting_password
+      POSTGRES_DB: meeting_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
