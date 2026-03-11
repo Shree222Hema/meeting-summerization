@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, Body
+from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, Body, BackgroundTasks
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -6,6 +6,7 @@ import logging
 import PyPDF2
 import docx
 import io
+import concurrent.futures
 
 import os
 import shutil
@@ -13,6 +14,8 @@ import subprocess
 import models
 from database import engine, get_db
 from nlp import preprocessing, summarizer, extractor, transcriber, sentiment, rag_engine
+from youtube_transcript_api import YouTubeTranscriptApi
+
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +23,21 @@ logger = logging.getLogger(__name__)
 
 # Create tables and DB
 models.Base.metadata.create_all(bind=engine)
+
+# Load AI Pipelines Lazily
+_qa_pipeline = None
+
+def get_qa_pipeline():
+    global _qa_pipeline
+    if _qa_pipeline is None:
+        try:
+            from transformers import pipeline
+            logger.info("Initializing Global QA Brain (Lazy)...")
+            _qa_pipeline = pipeline("text2text-generation", model="google/flan-t5-small", device=-1)
+            logger.info("QA Pipeline online.")
+        except Exception as e:
+            logger.error(f"Failed to initialize QA Pipeline: {e}")
+    return _qa_pipeline
 
 app = FastAPI(title="Meeting Summarization API")
 
@@ -70,12 +88,13 @@ Question:
 {user_query}
 """
     
-    # 3. Generate Answer (using a fast transformers text2text pipeline)
+    # 3. Generate Answer (using organized global pipeline)
+    qa_model = get_qa_pipeline()
+    if not qa_model:
+        return {"answer": "Chat Engine Offline. Please check server logs.", "sources": []}
+        
     try:
-        from transformers import pipeline
-        # Using a very tiny T5 model for CPU speed
-        qa_pipeline = pipeline("text2text-generation", model="google/flan-t5-small", device=-1)
-        answer = qa_pipeline(prompt, max_length=150, do_sample=False)[0]['generated_text']
+        answer = qa_model(prompt, max_length=150, do_sample=False)[0]['generated_text']
         
         # Format sources to return to UI
         sources = list(set([c['meeting_id'] for c in relevant_chunks]))
@@ -88,8 +107,28 @@ Question:
         logger.error(f"Chat LLM Error: {e}")
         return {"answer": "Error generating answer from context.", "sources": []}
 
+@app.delete("/api/meetings/{meeting_id}")
+def delete_meeting(meeting_id: int, db: Session = Depends(get_db)):
+    meeting = db.query(models.Meeting).filter(models.Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # 1. Delete from Vector DB
+    try:
+        rag_engine.delete_transcript_from_vector_db(meeting_id)
+    except Exception as e:
+        logger.error(f"Failed to delete from Vector DB: {e}")
+        # We continue even if vector deletion fails, to keep DB in sync
+    
+    # 2. Delete from SQL DB (Cascades to Summary and ActionItems)
+    db.delete(meeting)
+    db.commit()
+    
+    return {"message": f"Meeting {meeting_id} deleted successfully."}
+
 @app.post("/api/meetings/upload")
 async def upload_meeting(
+    background_tasks: BackgroundTasks,
     title: str = Form(...), 
     file: UploadFile = File(None), 
     text: str = Form(None), 
@@ -101,27 +140,61 @@ async def upload_meeting(
         
     transcript = ""
     
+    # If it's a URL (like YouTube)
     if url:
-        logger.info(f"Downloading audio from URL: {url}")
-        temp_audio = "temp_download.wav"
+        logger.info(f"Processing External Feed: {url}")
         try:
-            # yt-dlp config to extract audio
-            subprocess.run([
-                "yt-dlp",
-                "-f", "bestaudio/best",
-                "-x", "--audio-format", "wav",
-                "-o", "temp_download.%(ext)s",
-                url
-            ], check=True)
+            # YouTube Fast-Track: Try fetching transcript directly
+            video_id = None
+            if "youtube.com" in url or "youtu.be" in url:
+                import re
+                patterns = [r"v=([a-zA-Z0-9_-]+)", r"be/([a-zA-Z0-9_-]+)"]
+                for p in patterns:
+                    match = re.search(p, url)
+                    if match:
+                        video_id = match.group(1)
+                        break
             
-            logger.info("Transcribing downloaded audio...")
-            transcript = transcriber.transcribe_audio(temp_audio)
+            if video_id:
+                logger.info(f"Detected YouTube ID: {video_id}. Attempting Fast-Track Extraction...")
+                try:
+                    # Robust YouTube Transcript Fetching
+                    try:
+                        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+                        transcript = " ".join([t['text'] for t in transcript_list])
+                    except (AttributeError, Exception) as e:
+                        # Fallback for different API versions or missing method
+                        logger.info(f"get_transcript failed or missing ({e}), trying list_transcripts...")
+                        t_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                        transcript = " ".join([t['text'] for t in t_list.find_transcript(['en']).fetch()])
+
+                    
+                    logger.info("YouTube Fast-Track Successful.")
+                except Exception as api_err:
+                    logger.warning(f"Fast-Track unavailable ({api_err}). Falling back to heavy processing...")
+                    video_id = None # Trigger fallback
+
+            if not video_id:
+                # Heavy Fallback (Download + Whisper)
+                temp_audio = "temp_download.wav"
+                # Use robust path for yt-dlp
+                yt_dlp_cmd = shutil.which("yt-dlp") or os.path.join(os.getcwd(), "venv/bin/yt-dlp")
+                
+                subprocess.run([
+                    yt_dlp_cmd,
+                    "-f", "bestaudio/best",
+                    "-x", "--audio-format", "wav",
+                    "-o", "temp_download.%(ext)s",
+                    url
+                ], check=True)
+                
+                logger.info("Transcribing downloaded audio...")
+                transcript = transcriber.transcribe_audio(temp_audio)
+                if os.path.exists(temp_audio):
+                    os.remove(temp_audio)
         except Exception as e:
             logger.error(f"Failed to process URL: {e}")
-            raise HTTPException(status_code=400, detail="Failed to extract audio from provided URL.")
-        finally:
-            if os.path.exists(temp_audio):
-                os.remove(temp_audio)
+            raise HTTPException(status_code=400, detail="Failed to extract intelligence from URL.")
                 
     elif file:
         filename = file.filename.lower()
@@ -159,17 +232,31 @@ async def upload_meeting(
     logger.info("Cleaning transcript...")
     cleaned_transcript = preprocessing.clean_transcript(transcript)
     
-    logger.info("Generating summary...")
-    summary_text = summarizer.generate_summary(cleaned_transcript)
+    import time
+    start_time = time.time()
     
-    logger.info("Extracting action items...")
-    action_items_list = extractor.extract_action_items(cleaned_transcript)
+    # Process transcript using parallel execution for speed
+    logger.info("Initializing high-performance parallel synthesis...")
     
-    logger.info("Analyzing sentiment...")
-    meeting_sentiment = sentiment.analyze_sentiment(cleaned_transcript)
-    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit all independent intensive tasks
+        future_summary = executor.submit(summarizer.generate_summary, cleaned_transcript)
+        future_actions = executor.submit(extractor.extract_action_items, cleaned_transcript)
+        future_sentiment = executor.submit(sentiment.analyze_sentiment, cleaned_transcript)
+        # Note: Vector Embeddings are now offloaded to BackgroundTasks to prevent blocking
+        
+        # Collect results
+        summary_text = future_summary.result()
+        logger.info(f"Summary Synthesis: {time.time() - start_time:.2f}s")
+        
+        action_items_list = future_actions.result()
+        logger.info(f"Action Extraction: {time.time() - start_time:.2f}s")
+        
+        meeting_sentiment = future_sentiment.result()
+        logger.info(f"Sentiment Analysis: {time.time() - start_time:.2f}s")
+
     # Save to DB
-    logger.info("Saving to database...")
+    logger.info("Persisting to relational storage...")
     new_meeting = models.Meeting(title=title, transcript=cleaned_transcript)
     db.add(new_meeting)
     db.commit()
@@ -194,14 +281,35 @@ async def upload_meeting(
         
     db.commit()
     
-    # Send transcript to Vector DB for future Chat/RAG queries
-    logger.info("Storing transcript in ChromaDB Vector Storage...")
-    try:
-        rag_engine.store_transcript_in_vector_db(new_meeting.id, cleaned_transcript)
-    except Exception as e:
-        logger.error(f"Failed to store in Vector DB: {e}")
+    # Finalize Vector ID (Since we used -1 before, we should either update or just wait and store now)
+    # Actually, it's safer to store with the REAL ID. Let's adjust the parallel block to wait for the ID first.
+    # REVISED STRATEGY: RAG storage needs the ID, but embedding generation can start.
+    # However, to keep it simple and robust, we'll wait for storage.
     
-    return {"meeting_id": new_meeting.id, "message": "Meeting processed successfully."}
+    logger.info(f"Relational Persistence complete: {time.time() - start_time:.2f}s")
+    
+    # NEURAL ASYNCHRONY: Offload vector storage (the heaviest part) to background
+    logger.info("Offloading Neural Vector Storage to background task...")
+    background_tasks.add_task(rag_engine.store_transcript_in_vector_db, new_meeting.id, cleaned_transcript)
+    
+    total_time = time.time() - start_time
+    logger.info(f"--- TOTAL SYNTHESIS TIME: {total_time:.2f}s ---")
+    
+    # Consolidate response for immediate UI update (Reducing round-trip latency)
+    return {
+        "id": new_meeting.id,
+        "title": new_meeting.title,
+        "transcript": new_meeting.transcript,
+        "created_at": new_meeting.created_at,
+        "summary": summary_text,
+        "sentiment_label": meeting_sentiment["label"],
+        "sentiment_score": int(float(meeting_sentiment["score"]) * 100),
+        "action_items": [
+            {"task": item["task"], "assignee": item.get("assignee"), "deadline": item.get("deadline")} 
+            for item in action_items_list
+        ],
+        "message": f"Strategic synthesis complete in {total_time:.2f}s."
+    }
 
 @app.get("/api/meetings")
 def get_meetings(db: Session = Depends(get_db)):

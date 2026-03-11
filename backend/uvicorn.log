@@ -1,0 +1,53 @@
+nohup: ignoring input
+INFO:     Will watch for changes in these directories: ['/home/hemashree/Desktop/GitHub Projects/meeting-summeraization/backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [95660] using WatchFiles
+[nltk_data] Downloading package maxent_ne_chunker_tab to
+[nltk_data]     /home/hemashree/nltk_data...
+[nltk_data]   Package maxent_ne_chunker_tab is already up-to-date!
+/home/hemashree/Desktop/GitHub Projects/meeting-summeraization/backend/venv/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1.fields import FieldInfo as FieldInfoV1
+INFO:     Started server process [95740]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:main:Processing External Feed: https://youtu.be/-j0rjlfmDx4?si=oB6RR9hF_Lvw2ZNX
+INFO:main:Detected YouTube ID: -j0rjlfmDx4. Attempting Fast-Track Extraction...
+INFO:main:get_transcript failed or missing (type object 'YouTubeTranscriptApi' has no attribute 'get_transcript'), trying list_transcripts...
+WARNING:main:Fast-Track unavailable (type object 'YouTubeTranscriptApi' has no attribute 'list_transcripts'). Falling back to heavy processing...
+[youtube] Extracting URL: https://youtu.be/-j0rjlfmDx4?si=oB6RR9hF_Lvw2ZNX
+[youtube] -j0rjlfmDx4: Downloading webpage
+WARNING: [youtube] No supported JavaScript runtime could be found. Only deno is enabled by default; to use another runtime add  --js-runtimes RUNTIME[:PATH]  to your command/config. YouTube extraction without a JS runtime has been deprecated, and some formats may be missing. See  https://github.com/yt-dlp/yt-dlp/wiki/EJS  for details on installing one
+[youtube] -j0rjlfmDx4: Downloading android vr player API JSON
+[info] -j0rjlfmDx4: Downloading 1 format(s): 251
+[download] Destination: temp_download.webm
+[download]   0.0% of    2.06MiB at  934.35KiB/s ETA 00:02[download]   0.1% of    2.06MiB at    1.03MiB/s ETA 00:02[download]   0.3% of    2.06MiB at    1.56MiB/s ETA 00:01[download]   0.7% of    2.06MiB at    2.15MiB/s ETA 00:00[download]   1.5% of    2.06MiB at    3.47MiB/s ETA 00:00[download]   3.0% of    2.06MiB at    3.97MiB/s ETA 00:00[download]   6.0% of    2.06MiB at    5.18MiB/s ETA 00:00[download]  12.1% of    2.06MiB at    7.24MiB/s ETA 00:00[download]  24.2% of    2.06MiB at   11.44MiB/s ETA 00:00[download]  48.4% of    2.06MiB at   17.34MiB/s ETA 00:00[download]  96.9% of    2.06MiB at   25.56MiB/s ETA 00:00[download] 100.0% of    2.06MiB at   20.90MiB/s ETA 00:00[download] 100% of    2.06MiB in 00:00:00 at 13.50MiB/s  
+[ExtractAudio] Destination: temp_download.wav
+Deleting original file temp_download.webm (pass -k to keep)
+INFO:main:Transcribing downloaded audio...
+/home/hemashree/Desktop/GitHub Projects/meeting-summeraization/backend/venv/lib/python3.14/site-packages/whisper/transcribe.py:132: UserWarning: FP16 is not supported on CPU; using FP32 instead
+  warnings.warn("FP16 is not supported on CPU; using FP32 instead")
+INFO:main:Cleaning transcript...
+INFO:main:Initializing high-performance parallel synthesis...
+INFO:nlp.summarizer:TRIGGER: Summarizer Model Load Initiated...
+INFO:nlp.sentiment:TRIGGER: Sentiment Model Load Initiated...
+Device set to use cpu
+INFO:nlp.sentiment:SUCCESS: Sentiment Model Loaded.
+Device set to use cpu
+INFO:nlp.summarizer:SUCCESS: Summarizer Model Loaded.
+INFO:main:Summary Synthesis: 9.68s
+INFO:main:Action Extraction: 9.68s
+INFO:main:Sentiment Analysis: 9.68s
+INFO:main:Persisting to relational storage...
+INFO:main:Relational Persistence complete: 9.81s
+INFO:main:Offloading Neural Vector Storage to background task...
+INFO:main:--- TOTAL SYNTHESIS TIME: 9.82s ---
+Loading Whisper tiny model...
+Whisper model loaded successfully.
+INFO:     127.0.0.1:40416 - "POST /api/meetings/upload HTTP/1.1" 200 OK
+Loading Embedding Model (Lazy)...
+INFO:     127.0.0.1:40416 - "GET /api/meetings HTTP/1.1" 200 OK
+INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cpu
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+INFO:nlp.rag_engine:Chunking transcript for Meeting 11...
+INFO:nlp.rag_engine:Generated 1 chunks. Creating embeddings...
+INFO:nlp.rag_engine:Storing vectors in ChromaDB...

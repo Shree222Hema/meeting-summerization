@@ -1,11 +1,26 @@
 import nltk
 import re
 
-# We assume standard NLTK models are downloaded via setup scripts.
-# nltk.download('punkt')
-# nltk.download('averaged_perceptron_tagger_eng')
-# nltk.download('maxent_ne_chunker_tab')
-# nltk.download('words')
+# Ensure standard NLTK models are available to prevent runtime hangs
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+
+try:
+    nltk.data.find('taggers/averaged_perceptron_tagger_eng')
+except LookupError:
+    nltk.download('averaged_perceptron_tagger_eng')
+
+try:
+    nltk.data.find('chunkers/maxent_ne_chunker')
+except LookupError:
+    nltk.download('maxent_ne_chunker_tab')
+
+try:
+    nltk.data.find('corpora/words')
+except LookupError:
+    nltk.download('words')
 
 def extract_action_items(text: str) -> list[dict]:
     """
