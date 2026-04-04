@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+  createdAt DateTime  @default(now())
+
+  meetings  Meeting[]
+}
+
+model Meeting {
+  id           Int          @id @default(autoincrement())
+  title        String
+  transcript   String
+  createdAt    DateTime     @default(now())
+  
+  userId       Int
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  summary      Summary?
+  actionItems  ActionItem[]
+  chunks       MeetingChunk[]
+}
+
+model Summary {
+  id              Int      @id @default(autoincrement())
+  content         String
+  sentimentLabel  String?
+  sentimentScore  Float?
+  
+  meetingId       Int      @unique
+  meeting         Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model ActionItem {
+  id        Int      @id @default(autoincrement())
+  task      String
+  assignee  String?
+  deadline  String?
+  
+  meetingId Int
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model MeetingChunk {
+  id        Int      @id @default(autoincrement())
+  content   String
+  embedding String   // Store JSON stringified array of floats for cosine similarity
+  
+  meetingId Int
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
