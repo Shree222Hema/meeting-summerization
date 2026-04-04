@@ -1,7 +1,50 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+
+const SYNTHESIS_STEPS = [
+  'Ingesting source data...',
+  'Running transcription engine...',
+  'Generating executive summary...',
+  'Analyzing sentiment vectors...',
+  'Extracting action items...',
+  'Building knowledge embeddings...',
+  'Persisting to secure archive...',
+];
+
+function StepProgress({ loading }) {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    if (!loading) { setStep(0); return; }
+    const interval = setInterval(() => {
+      setStep(prev => prev < SYNTHESIS_STEPS.length - 1 ? prev + 1 : prev);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  if (!loading) return null;
+
+  return (
+    <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1.5rem', border: '1px solid var(--glass-border)' }}>
+      <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--text-muted)', marginBottom: '1rem', fontWeight: 700 }}>Synthesis Pipeline</div>
+      {SYNTHESIS_STEPS.map((s, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', opacity: i > step ? 0.25 : 1, transition: 'opacity 0.5s ease' }}>
+          <span style={{ width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.65rem', fontWeight: 700,
+            background: i < step ? 'var(--accent-cyan)' : i === step ? 'rgba(6,182,212,0.2)' : 'rgba(255,255,255,0.05)',
+            border: i === step ? '1px solid var(--accent-cyan)' : 'none',
+            boxShadow: i === step ? 'var(--shadow-neon-cyan)' : 'none',
+            color: i < step ? '#000' : 'var(--accent-cyan)'
+          }}>
+            {i < step ? '✓' : i === step ? <div className="loader-aurora" style={{ width: '10px', height: '10px', borderWidth: '2px' }}></div> : i + 1}
+          </span>
+          <span style={{ fontSize: '0.9rem', color: i <= step ? 'var(--text-main)' : 'var(--text-muted)' }}>{s}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function IngestPage() {
   const [text, setText] = useState('');
@@ -94,6 +137,12 @@ export default function IngestPage() {
     }
   };
 
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
+
   return (
     <div className="container" style={{ paddingTop: '3rem', paddingBottom: '4rem' }}>
       <div className="header fade-up" style={{ marginBottom: '3.5rem', textAlign: 'center' }}>
@@ -103,16 +152,16 @@ export default function IngestPage() {
           fontWeight: 700,
           background: 'linear-gradient(135deg, #FFFFFF 0%, #06B6D4 100%)',
           WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
-          textShadow: '0 0 30px rgba(6,182,212,0.2)'
         }}>Ingestion Hub</h1>
         <p style={{ color: 'var(--text-dim)', fontSize: '1.2rem', maxWidth: '600px', margin: '0 auto' }}>
           Upload files, paste YouTube links, or record live audio to synthesize intelligence.
         </p>
       </div>
 
-      <div style={{ maxWidth: '800px', margin: '0 auto' }} className="fade-up" style={{ animationDelay: '0.1s' }}>
-        <div className="ultra-glass ingestion-card" style={{ padding: '3rem', borderTop: '1px solid rgba(6, 182, 212, 0.4)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }} className="fade-up">
+        <div className="ultra-glass" style={{ padding: '3rem', borderTop: '2px solid rgba(6, 182, 212, 0.4)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
             <h2 style={{ fontSize: '1.5rem', margin: 0, fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ color: 'var(--accent-cyan)' }}>○</span> Select Source Data
@@ -141,8 +190,8 @@ export default function IngestPage() {
                 ) : file ? (
                   <div>
                     <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem', filter: 'drop-shadow(0 0 10px rgba(6,182,212,0.3))' }}>📄</span>
-                    <p style={{ fontWeight: 600, color: 'var(--accent-cyan)', margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>{file.name}</p>
-                    <small style={{ color: 'var(--text-dim)' }}>Ready for synthesis. Click to replace.</small>
+                    <p style={{ fontWeight: 600, color: 'var(--accent-cyan)', margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>{file.name}</p>
+                    <small style={{ color: 'var(--text-muted)' }}>{formatFileSize(file.size)} · Click to replace</small>
                   </div>
                 ) : (
                   <div>
@@ -189,7 +238,12 @@ export default function IngestPage() {
             </div>
 
             <div className="input-group">
-              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dim)', marginBottom: '0.5rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Manual Text Entry</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '1px', textTransform: 'uppercase' }}>Manual Text Entry</label>
+                <span style={{ fontSize: '0.75rem', color: text.length > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                  {text.length.toLocaleString()} chars
+                </span>
+              </div>
               <textarea 
                 className="input-futuristic" 
                 placeholder="Paste raw transcripts or notes here..." 
@@ -202,7 +256,9 @@ export default function IngestPage() {
 
             {error && <div style={{ color: 'var(--accent-crimson)', fontSize: '0.95rem', padding: '1rem', background: 'rgba(225, 29, 72, 0.1)', borderRadius: '8px', border: '1px solid rgba(225, 29, 72, 0.3)', textAlign: 'center' }}>⚠️ {error}</div>}
 
-            <button type="submit" className="btn-innovative primary-action" disabled={loading || (!text && !file && !url)} style={{ justifyContent: 'center', padding: '1.25rem', fontSize: '1.1rem', marginTop: '1rem', letterSpacing: '1px' }}>
+            <StepProgress loading={loading} />
+
+            <button type="submit" className="btn-innovative primary-action" disabled={loading || (!text && !file && !url)} style={{ justifyContent: 'center', padding: '1.25rem', fontSize: '1.1rem', marginTop: '0.5rem', letterSpacing: '1px' }}>
               {loading ? 'INITIATING SYNTHESIS...' : 'SYNTHESIZE INSIGHTS'}
             </button>
           </form>

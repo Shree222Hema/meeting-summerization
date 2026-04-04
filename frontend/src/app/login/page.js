@@ -8,6 +8,7 @@ import Link from "next/link";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -35,23 +36,32 @@ export default function LoginPage() {
   return (
     <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', position: 'relative' }}>
       
-      {/* Decorative background glow for Auth page */}
-      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100vw', height: '100vh', background: 'radial-gradient(circle at center, rgba(6,182,212,0.1) 0%, transparent 60%)', zIndex: -1, pointerEvents: 'none' }}></div>
+      {/* Decorative radial glow */}
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100vw', height: '100vh', background: 'radial-gradient(circle at center, rgba(6,182,212,0.08) 0%, transparent 65%)', zIndex: -1, pointerEvents: 'none' }}></div>
 
-      <div className="ultra-glass fade-up" style={{ width: '100%', maxWidth: '420px', padding: '3.5rem 2.5rem', borderTop: '1px solid rgba(6,182,212,0.4)', boxShadow: '0 20px 50px rgba(0,0,0,0.5), 0 0 40px rgba(6,182,212,0.1)' }}>
+      {/* Scan-line decorative overlay */}
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6,182,212,0.02) 2px, rgba(6,182,212,0.02) 4px)', pointerEvents: 'none', zIndex: -1 }}></div>
+
+      <div className="ultra-glass fade-up" style={{ width: '100%', maxWidth: '420px', padding: '3.5rem 2.5rem', borderTop: '2px solid rgba(6,182,212,0.5)', boxShadow: '0 20px 60px rgba(0,0,0,0.6), 0 0 60px rgba(6,182,212,0.08)' }}>
+        
+        {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem', filter: 'drop-shadow(0 0 15px rgba(6,182,212,0.5))' }}>⚡</span>
-          <h2 style={{ fontSize: '1.8rem', margin: 0, fontWeight: 600, color: 'var(--text-main)', letterSpacing: '1px' }}>SYSTEM ACCESS</h2>
-          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '1rem' }}>Identify yourself to Intel Hub</p>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(6,182,212,0.1)', border: '2px solid rgba(6,182,212,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem', boxShadow: '0 0 30px rgba(6,182,212,0.2)' }}>
+            <span style={{ fontSize: '2rem', filter: 'drop-shadow(0 0 10px rgba(6,182,212,0.5))' }}>⚡</span>
+          </div>
+          <h2 style={{ fontSize: '1.8rem', margin: 0, fontWeight: 700, color: 'var(--text-main)', letterSpacing: '2px' }}>SYSTEM ACCESS</h2>
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '0.95rem' }}>Identify yourself to Intel Hub</p>
         </div>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div className="input-group">
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', letterSpacing: '1.5px', textTransform: 'uppercase', display: 'block' }}>Operative Email</label>
             <input 
               type="email"
               required
+              id="login-email"
               className="input-futuristic" 
-              placeholder="Operative Email" 
+              placeholder="agent@intelhub.io"
               value={email} 
               onChange={(e) => setEmail(e.target.value)}
               style={{ background: 'rgba(0,0,0,0.5)' }}
@@ -59,26 +69,38 @@ export default function LoginPage() {
           </div>
 
           <div className="input-group">
-            <input 
-              type="password"
-              required
-              className="input-futuristic" 
-              placeholder="Authorization Key (Password)" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ background: 'rgba(0,0,0,0.5)' }}
-            />
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', letterSpacing: '1.5px', textTransform: 'uppercase', display: 'block' }}>Authorization Key</label>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type={showPassword ? 'text' : 'password'}
+                required
+                id="login-password"
+                className="input-futuristic" 
+                placeholder="••••••••••••"
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ background: 'rgba(0,0,0,0.5)', paddingRight: '3.5rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(p => !p)}
+                style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: 0 }}
+                tabIndex={-1}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
 
           {error && <div style={{ color: 'var(--accent-crimson)', fontSize: '0.85rem', textAlign: 'center', background: 'rgba(225, 29, 72, 0.1)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(225, 29, 72, 0.3)', letterSpacing: '0.5px' }}>{error}</div>}
 
-          <button type="submit" className="btn-innovative primary-action" disabled={loading} style={{ justifyContent: 'center', padding: '1rem', marginTop: '1rem', fontSize: '1.05rem', letterSpacing: '2px', background: 'linear-gradient(135deg, #0891b2 0%, var(--accent-cyan) 100%)', boxShadow: '0 4px 15px var(--shadow-neon-cyan)' }}>
+          <button type="submit" className="btn-innovative primary-action" disabled={loading} style={{ justifyContent: 'center', padding: '1rem', marginTop: '0.75rem', fontSize: '1rem', letterSpacing: '2px', background: 'linear-gradient(135deg, #0891b2 0%, var(--accent-cyan) 100%)', boxShadow: '0 4px 20px rgba(6,182,212,0.3)' }}>
             {loading ? <div className="loader-aurora" style={{ width: '20px', height: '20px', borderWidth: '2px', borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }}></div> : 'AUTHORIZE'}
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '2.5rem', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
-          No operative profile? <Link href="/register" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', fontWeight: 600, textShadow: 'var(--shadow-neon-cyan)' }}>Register credentials</Link>
+        <div style={{ textAlign: 'center', marginTop: '2rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+          No operative profile? <Link href="/register" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', fontWeight: 600 }}>Register credentials →</Link>
         </div>
       </div>
     </div>
