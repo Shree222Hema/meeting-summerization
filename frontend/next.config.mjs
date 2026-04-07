@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    turbopack: {
-      root: './'
-    }
+  turbopack: {
+    // Correct top-level key for Next.js 16
+    root: './'
   },
   // Opt out from webpack processing these native node packages
   serverExternalPackages: [
