@@ -2,15 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-// Dynamic imports inside POST() for NLP models
 
-async function getQAPipeline() {
-  if (!QA_PIPELINE) {
-    const { Text2TextGenerationPipeline } = await import('@/lib/nlp');
-    // Using a basic fetch and answer approach here if we can't export class easily
-    // Better to use exported functions from nlp.js
-  }
-}
+export const maxDuration = 300; // Increased for AI processing
 
 export async function POST(request) {
   try {
@@ -24,8 +17,7 @@ export async function POST(request) {
     const { generateEmbedding, cosineSimilarity } = await import('@/lib/nlp');
     const queryVector = await generateEmbedding(query);
     
-    // 2. Compute similarity across ALL chunks (since dataset is small)
-    // Note: For larger datasets, vector DB like Pinecone/Qdrant is required.
+    // 2. Compute similarity across ALL chunks
     const chunks = await prisma.meetingChunk.findMany({
       where: {
         meeting: {
@@ -62,7 +54,7 @@ export async function POST(request) {
     
     const prompt = `You are a helpful Meeting Intelligence AI. Answer the user's question based ONLY on the following excerpts from past meetings.\n\nExcerpts:\n${context}\n\nQuestion:\n${query}`;
     
-    // Lazy load QA pipeline directly
+    // 5. Run LLM Inference
     const { pipeline, env } = await import('@xenova/transformers');
     env.allowLocalModels = false;
     env.useBrowserCache = false;

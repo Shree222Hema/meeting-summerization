@@ -3,11 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { convertToPCM } from '@/lib/ffmpeg';
-// Dynamic imports inside POST() for node-heavy modules to bypass Turbopack build evaluation issues
-
 
 // Next.js config to allow longer execution for large models
-export const maxDuration = 120; // 120 seconds for Vercel Hobby tier
+export const maxDuration = 300; // Increased for Vercel Hobby tier AI processing
 
 export async function POST(request) {
   try {
