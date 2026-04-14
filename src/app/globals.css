@@ -327,76 +327,127 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.6;
 }
 
-/* --- Dashboard Innovation Utilities --- */
+/* --- Advanced Intelligence UI Utilities --- */
 
-/* Sentiment Awareness */
-.border-sentiment-pos { border-color: var(--accent-cyan); box-shadow: 0 0 20px rgba(6, 182, 212, 0.2); }
-.border-sentiment-neg { border-color: var(--accent-crimson); box-shadow: 0 0 20px rgba(225, 29, 72, 0.2); }
-.border-sentiment-neu { border-color: var(--accent-purple); box-shadow: 0 0 20px rgba(139, 92, 246, 0.2); }
-
-.bg-sentiment-pos { background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), transparent); }
-.bg-sentiment-neg { background: linear-gradient(135deg, rgba(225, 29, 72, 0.1), transparent); }
-.bg-sentiment-neu { background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), transparent); }
-
-/* Gauge & Progress Animations */
-@keyframes dash {
-  from { stroke-dashoffset: 100; }
-  to { stroke-dashoffset: var(--gauge-offset); }
+/* Tab System */
+.tab-container {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 0.5rem;
 }
 
-.gauge-path {
-  transition: stroke-dashoffset 1s ease-out;
-  stroke-linecap: round;
-}
-
-/* Strategic Topic Chips */
-.topic-chip {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
-  padding: 0.4rem 1rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.85rem;
-  color: var(--text-dim);
+.tab-trigger {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
   transition: all 0.3s ease;
+  position: relative;
+}
+
+.tab-trigger.active {
+  color: var(--accent-cyan);
+}
+
+.tab-trigger.active::after {
+  content: '';
+  position: absolute;
+  bottom: -0.6rem;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan-glow);
+}
+
+.tab-trigger:hover:not(.active) {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-sm);
+}
+
+/* Structural Index Navigation */
+.structural-index {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.index-item {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  border-left: 2px solid transparent;
+}
+
+.index-item:hover {
+  background: rgba(6, 182, 212, 0.05);
+  color: var(--accent-cyan);
+  border-left-color: var(--accent-cyan);
+}
+
+/* Telemetry Console Aesthetics */
+.telemetry-line {
+  display: flex;
+  gap: 1.5rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.line-number {
+  color: var(--text-muted);
+  user-select: none;
+  text-align: right;
+  min-width: 2.5rem;
+  opacity: 0.4;
+}
+
+/* Waveform Animation for Narration */
+.waveform {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  white-space: nowrap;
+  gap: 3px;
+  height: 20px;
 }
 
-.topic-chip:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-  color: var(--text-main);
+.wave-bar {
+  width: 3px;
+  height: 100%;
+  background: var(--accent-cyan);
+  border-radius: 2px;
+  animation: wave 1s ease-in-out infinite;
 }
 
-.topic-chip::before {
-  content: '#';
-  color: var(--accent-cyan);
-  font-weight: 700;
-  opacity: 0.6;
+@keyframes wave {
+  0%, 100% { height: 4px; }
+  50% { height: 20px; }
 }
 
-/* Pulse Glows */
-.pulse-glow-cyan { animation: pulseCyan 3s infinite; }
-.pulse-glow-purple { animation: pulsePurple 3s infinite; }
-
-@keyframes pulseCyan {
-  0% { text-shadow: 0 0 10px rgba(6, 182, 212, 0.3); }
-  50% { text-shadow: 0 0 20px rgba(6, 182, 212, 0.6); }
-  100% { text-shadow: 0 0 10px rgba(6, 182, 212, 0.3); }
+/* Intelligence Metrics Meter */
+.metric-meter-container {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.5rem;
 }
 
-@keyframes pulsePurple {
-  0% { box-shadow: 0 0 10px rgba(139, 92, 246, 0.2); }
-  50% { box-shadow: 0 0 25px rgba(139, 92, 246, 0.4); }
-  100% { box-shadow: 0 0 10px rgba(139, 92, 246, 0.2); }
+.metric-meter-fill {
+  height: 100%;
+  transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Tactical Task Card Hover */
-.task-card-active:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: var(--accent-purple) !important;
-  box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.3) !important;
-}
+/* Premium Reveal Animation */
+.reveal-delay-1 { animation-delay: 0.1s; }
+.reveal-delay-2 { animation-delay: 0.2s; }
+.reveal-delay-3 { animation-delay: 0.3s; }
+

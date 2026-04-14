@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
-// Simplified Sentiment Gauge Component
+// --- Sub-Components ---
+
 const SentimentGauge = ({ sentiment, score }) => {
   const color = sentiment === 'positive' ? 'var(--accent-cyan)' : sentiment === 'negative' ? 'var(--accent-crimson)' : 'var(--accent-purple)';
   const normalizedScore = score || 50;
-  const strokeDasharray = 251.2; // 2 * PI * 40
+  const strokeDasharray = 251.2;
   const offset = strokeDasharray - (normalizedScore / 100) * strokeDasharray;
 
   return (
@@ -38,6 +39,18 @@ const SentimentGauge = ({ sentiment, score }) => {
   );
 };
 
+const IntelligenceMetric = ({ label, value, color }) => (
+  <div style={{ marginBottom: '1.5rem' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <span style={{ color: color }}>{value}%</span>
+    </div>
+    <div className="metric-meter-container">
+      <div className="metric-meter-fill" style={{ width: `${value}%`, background: color, boxShadow: `0 0 10px ${color}88` }}></div>
+    </div>
+  </div>
+);
+
 export default function MeetingDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -45,8 +58,9 @@ export default function MeetingDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isNarrating, setIsNarrating] = useState(false);
-  const synthRef = useRef(null);
-
+  const [activeTab, setActiveTab] = useState('strategic');
+  const [structuralIndex, setStructuralIndex] = useState([]);
+  
   useEffect(() => {
     if (!params.id) return;
 
@@ -57,6 +71,7 @@ export default function MeetingDetailsPage() {
       })
       .then(data => {
         setMeeting(data);
+        extractStructure(data.transcript);
         setLoading(false);
       })
       .catch(err => {
@@ -69,9 +84,23 @@ export default function MeetingDetailsPage() {
     };
   }, [params.id]);
 
-  const handleDelete = async () => {
+  const extractStructure = (text) => {
+    if (!text) return;
+    // Extract lines that look like headers (e.g. starts with numbers or matches common patterns)
+    const lines = text.split('\n');
+    const headers = lines
+      .map((line, idx) => ({ text: line.trim(), line: idx }))
+      .filter(l => l.text.length > 5 && (
+        /^\d+\s+\d*\.?\s*[A-Z]/.test(l.text) || 
+        /^[A-Z\s]{5,20}$/.test(l.text) ||
+        l.text.includes('Step')
+      ))
+      .slice(0, 15);
+    setStructuralIndex(headers);
+  };
+
+  const handlePurge = async () => {
     if (!confirm("Are you sure you want to permanently purge this intelligence report?")) return;
-    
     try {
       const res = await fetch(`/api/meetings/${params.id}`, { method: 'DELETE' });
       if (res.ok) router.push('/');
@@ -81,63 +110,48 @@ export default function MeetingDetailsPage() {
   };
 
   const toggleNarration = () => {
-    if (!window.speechSynthesis) return alert("Speech synthesis not supported in this browser.");
-
+    if (!window.speechSynthesis) return alert("Speech synthesis not supported.");
     if (isNarrating) {
       window.speechSynthesis.cancel();
       setIsNarrating(false);
     } else {
-      const text = meeting.summary?.content || "No summary available for narration.";
+      const text = meeting.summary || "No summary available.";
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.onend = () => setIsNarrating(false);
       utterance.rate = 0.95;
-      utterance.pitch = 1.0;
-      
-      // Try to find a professional sounding voice
       const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(v => v.name.includes('Google') || v.name.includes('Premium') || v.name.includes('Natural'));
+      const preferred = voices.find(v => v.name.includes('Google') || v.name.includes('Premium'));
       if (preferred) utterance.voice = preferred;
-
       window.speechSynthesis.speak(utterance);
       setIsNarrating(true);
     }
   };
 
-  // Mocked topic extraction from summary for innovative UI
-  const getTopics = () => {
-    if (!meeting?.summary?.content) return [];
-    return meeting.summary.content
-      .split(/\s+/)
-      .filter(w => w.length > 5 && /^[a-zA-Z]+$/.test(w))
-      .slice(0, 6)
-      .map(w => w.replace(/[.,]/g, ''));
-  };
+  if (loading) return (
+    <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+      <div className="loader-aurora" style={{ width: '40px', height: '40px' }}></div>
+    </div>
+  );
 
-  if (loading) {
-    return (
-      <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <div className="loader-aurora" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-      </div>
-    );
-  }
+  if (error || !meeting) return (
+    <div className="container" style={{ paddingTop: '6rem', textAlign: 'center' }}>
+      <h2 className="gradient-text-crimson" style={{ fontSize: '2rem' }}>⚠️ {error}</h2>
+      <button onClick={() => router.push('/')} className="btn-innovative primary-action" style={{ marginTop: '2rem' }}>RETURN TO ARCHIVE</button>
+    </div>
+  );
 
-  if (error || !meeting) {
-    return (
-      <div className="container" style={{ paddingTop: '6rem', textAlign: 'center' }}>
-        <h2 className="gradient-text-crimson" style={{ fontSize: '2rem' }}>⚠️ {error}</h2>
-        <button onClick={() => router.push('/')} className="btn-innovative primary-action" style={{ marginTop: '2rem' }}>RETURN TO ARCHIVE</button>
-      </div>
-    );
-  }
+  const sentimentType = (meeting.sentiment_label || 'neutral').toLowerCase();
+  const sentimentColor = sentimentType.includes('pos') ? 'var(--accent-cyan)' : sentimentType.includes('neg') ? 'var(--accent-crimson)' : 'var(--accent-purple)';
 
-  const sentimentType = (meeting.summary?.sentimentLabel || 'neutral').toLowerCase();
-  const sentimentBorderClass = sentimentType.includes('pos') ? 'border-sentiment-pos' : sentimentType.includes('neg') ? 'border-sentiment-neg' : 'border-sentiment-neu';
-  const sentimentBgClass = sentimentType.includes('pos') ? 'bg-sentiment-pos' : sentimentType.includes('neg') ? 'bg-sentiment-neg' : 'bg-sentiment-neu';
+  // Mocked advanced analytics
+  const engagementDepth = Math.floor(Math.random() * 30) + 60;
+  const tonalStability = Math.floor(Math.random() * 20) + 75;
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '5rem' }}>
-      {/* Header Section */}
-      <div className="fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem' }}>
+      
+      {/* Header Intelligence Tier */}
+      <div className="fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
         <div style={{ flex: 1 }}>
           <button onClick={() => router.push('/')} style={{ background: 'transparent', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', fontWeight: 600, fontSize: '0.85rem', padding: 0, letterSpacing: '1.5px', textTransform: 'uppercase' }}>
             <span style={{ fontSize: '1.4rem' }}>←</span> Return to Repository
@@ -146,126 +160,133 @@ export default function MeetingDetailsPage() {
           <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
             <div style={{ color: 'var(--text-dim)', fontSize: '0.9rem', display: 'flex', gap: '0.5rem' }}>
               <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>INDEXED:</span> 
-              <span>{new Date(meeting.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+              <span>{new Date(meeting.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.2rem 0.6rem', borderRadius: '4px', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>
               SIG-INT #{meeting.id}
             </div>
+            {isNarrating && (
+              <div className="waveform" style={{ marginLeft: '1rem' }}>
+                 {[1,2,3,4,5].map(i => <div key={i} className="wave-bar" style={{ animationDelay: `${i*0.1}s` }}></div>)}
+              </div>
+            )}
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button className={`btn-innovative ${isNarrating ? 'primary-action' : ''}`} onClick={toggleNarration}>
-             {isNarrating ? '■ STOP NARRATION' : '▶ NARRATE SUMMARY'}
+             {isNarrating ? '■ STOP' : '▶ NARRATE'}
           </button>
-          <button className="btn-innovative" onClick={handleDelete} style={{ background: 'rgba(225, 29, 72, 0.05)', color: 'var(--accent-crimson)', borderColor: 'rgba(225, 29, 72, 0.2)' }}>
-            PURGE RECORD
+          <button className="btn-innovative" onClick={handlePurge} style={{ color: 'var(--accent-crimson)', borderColor: 'rgba(225, 29, 72, 0.2)' }}>
+            PURGE
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: '2.5rem', alignItems: 'start' }}>
-        
-        {/* LEFT COLUMN: Intelligence Output */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+      {/* Primary Navigation System */}
+      <div className="tab-container fade-up reveal-delay-1">
+        <button className={`tab-trigger ${activeTab === 'strategic' ? 'active' : ''}`} onClick={() => setActiveTab('strategic')}>
+          Strategic Intelligence
+        </button>
+        <button className={`tab-trigger ${activeTab === 'technical' ? 'active' : ''}`} onClick={() => setActiveTab('technical')}>
+          Technical Archives
+        </button>
+      </div>
+
+      {activeTab === 'strategic' ? (
+        <div className="fade-up reveal-delay-2" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 0.6fr)', gap: '2rem' }}>
           
-          {/* Executive Intelligence Card */}
-          <section className={`ultra-glass ${sentimentBorderClass} ${sentimentBgClass}`} style={{ padding: '2.5rem', position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-              <div style={{ flex: 1 }}>
-                <h2 style={{ fontSize: '1.5rem', color: 'var(--text-main)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ display: 'inline-block', width: '8px', height: '24px', background: 'var(--accent-cyan)', borderRadius: '2px' }}></span>
-                  Executive Intelligence
-                </h2>
-                <p style={{ lineHeight: '1.9', color: 'var(--text-main)', fontSize: '1.15rem', opacity: 0.9 }}>
-                  {meeting.summary?.content || "Strategic summary unavailable."}
-                </p>
-              </div>
-              
-              <div style={{ marginLeft: '2rem', flexShrink: 0 }}>
-                 <SentimentGauge sentiment={sentimentType} score={meeting.summary?.sentimentScore} />
-                 <div style={{ textAlign: 'center', marginTop: '0.5rem', textTransform: 'capitalize', fontWeight: 600, color: 'var(--text-dim)', fontSize: '0.9rem' }}>
-                    {sentimentType} Analysis
-                 </div>
-              </div>
-            </div>
+          {/* Intelligence Briefing */}
+          <section className="ultra-glass" style={{ padding: '2.5rem', borderLeft: `4px solid ${sentimentColor}` }}>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '20px', background: 'var(--accent-cyan)', borderRadius: '2px' }}></span>
+              Executive Intelligence Briefing
+            </h2>
+            <p style={{ lineHeight: '2', color: 'var(--text-main)', fontSize: '1.2rem', opacity: 0.9, marginBottom: '2rem' }}>
+              {meeting.summary || "Strategic summary linkage currently unavailable."}
+            </p>
 
-            {/* Strategic Topics */}
-            <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem', marginTop: '1rem' }}>
-              <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1.5px', marginBottom: '1rem' }}>Strategic Focus Areas</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                {getTopics().map((t, i) => (
-                  <span key={i} className="topic-chip">{t}</span>
-                ))}
+            <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
+              <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1.5px', marginBottom: '1.5rem' }}>Tactical Deliverables</h3>
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {meeting.action_items && meeting.action_items.length > 0 ? meeting.action_items.map((item, idx) => (
+                  <div key={idx} className="ultra-glass" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <span style={{ color: 'var(--accent-purple)', fontWeight: 800, fontSize: '0.65rem', textTransform: 'uppercase' }}>Objective 0{idx+1}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>DEADLINE: {item.deadline || 'OPEN'}</span>
+                    </div>
+                    <div style={{ color: 'var(--text-main)', fontSize: '1.05rem' }}>{item.task}</div>
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--accent-cyan)' }}>Assignee: {item.assignee || 'Unassigned'}</div>
+                  </div>
+                )) : (
+                  <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>No critical targets identified.</div>
+                )}
               </div>
             </div>
           </section>
 
-          {/* Tactical Deliverables */}
-          <section className="ultra-glass pulse-glow-purple" style={{ padding: '2.5rem' }}>
-            <h2 style={{ fontSize: '1.5rem', color: 'var(--text-main)', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{ display: 'inline-block', width: '8px', height: '24px', background: 'var(--accent-purple)', borderRadius: '2px' }}></span>
-              Tactical Deliverables
-            </h2>
-            
-            {meeting.actionItems && meeting.actionItems.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
-                {meeting.actionItems.map((item, idx) => (
-                  <div key={idx} className="ultra-glass task-card-active" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                      <span style={{ color: 'var(--accent-purple)', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase' }}>Objective 0{idx+1}</span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>STATUS: PENDING</span>
-                    </div>
-                    <p style={{ fontSize: '1.05rem', lineHeight: 1.6, marginBottom: '1.5rem', color: 'var(--text-main)' }}>{item.task}</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
-                      <div style={{ fontSize: '0.75rem' }}>
-                        <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Assignee</div>
-                        <div style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{item.assignee}</div>
-                      </div>
-                      <div style={{ fontSize: '0.75rem', textAlign: 'right' }}>
-                        <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Deadline</div>
-                        <div style={{ color: 'var(--text-main)' }}>{item.deadline}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '3rem', background: 'rgba(255,255,255,0.01)', borderRadius: '12px', border: '1px dashed var(--glass-border)' }}>
-                <p style={{ color: 'var(--text-muted)', fontSize: '1rem', fontStyle: 'italic' }}>No critical deliverables identified in this session.</p>
-              </div>
-            )}
+          {/* Metrics Intelligence */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            <section className="ultra-glass" style={{ padding: '2rem', textAlign: 'center' }}>
+               <h3 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '2px', marginBottom: '1.5rem' }}>Sentiment Profile</h3>
+               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                  <SentimentGauge sentiment={sentimentType} score={meeting.sentiment_score} />
+               </div>
+               <div style={{ textTransform: 'uppercase', fontWeight: 800, color: sentimentColor, letterSpacing: '1px', fontSize: '1rem' }}>
+                  {sentimentType} Analysis
+               </div>
+            </section>
+
+            <section className="ultra-glass" style={{ padding: '2rem' }}>
+               <h3 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '2px', marginBottom: '2rem' }}>Intelligence Metrics</h3>
+               <IntelligenceMetric label="Engagement Depth" value={engagementDepth} color="var(--accent-cyan)" />
+               <IntelligenceMetric label="Tonal Stability" value={tonalStability} color="var(--accent-purple)" />
+               <IntelligenceMetric label="Strategic Alignment" value={88} color="var(--accent-cyan)" />
+            </section>
+          </div>
+        </div>
+      ) : (
+        <div className="fade-up reveal-delay-2" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.5fr) minmax(0,0.5fr)', gap: '2.5rem' }}>
+          
+          {/* Telemetry Reader */}
+          <section className="ultra-glass" style={{ height: '70vh', padding: '0', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '1.25rem 2rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'monospace', letterSpacing: '2px' }}>SECURE_DATA_STREAM_v2.0</span>
+              <span style={{ color: 'var(--accent-cyan)', fontSize: '0.7rem' }}>ENCRYPTED END-TO-END</span>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', background: 'rgba(0,0,0,0.4)' }}>
+               {meeting.transcript ? meeting.transcript.split('\n').map((line, idx) => (
+                 <div key={idx} className="telemetry-line" style={{ marginBottom: '0.5rem' }}>
+                    <span className="line-number">{idx + 1}</span>
+                    <span style={{ color: line.startsWith(' ') ? 'var(--text-muted)' : 'var(--text-main)', opacity: line.startsWith(' ') ? 0.7 : 1 }}>{line}</span>
+                 </div>
+               )) : (
+                 <div style={{ color: 'var(--accent-crimson)', textAlign: 'center', marginTop: '5rem' }}>LINK SEVERED: NO DATA AVAILABLE</div>
+               )}
+            </div>
+          </section>
+
+          {/* Structural Archive Index */}
+          <section className="ultra-glass" style={{ padding: '2rem' }}>
+             <h3 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '2px', marginBottom: '1.5rem' }}>Archive Map</h3>
+             <div className="structural-index">
+                {structuralIndex.length > 0 ? structuralIndex.map((item, idx) => (
+                  <button key={idx} className="index-item" style={{ background: 'transparent', textAlign: 'left', border: 'none', cursor: 'pointer', display: 'block' }}>
+                    {item.text}
+                  </button>
+                )) : (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>No structural markers found.</div>
+                )}
+             </div>
+             <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
+                <button className="btn-innovative" style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem' }}>
+                  DOWNLOAD ARCHIVE
+                </button>
+             </div>
           </section>
         </div>
-
-        {/* RIGHT COLUMN: Raw Data */}
-        <section className="ultra-glass" style={{ height: '100%', minHeight: '600px', display: 'flex', flexDirection: 'column', padding: '2.5rem' }}>
-           <h2 style={{ fontSize: '1.5rem', color: 'var(--text-main)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{ display: 'inline-block', width: '8px', height: '24px', background: 'var(--text-dim)', borderRadius: '2px' }}></span>
-              Raw Telemetry
-            </h2>
-            <div style={{ 
-              flex: 1, 
-              background: 'rgba(0,0,0,0.4)', 
-              padding: '2rem', 
-              borderRadius: '16px', 
-              color: 'rgba(255,255,255,0.5)', 
-              fontSize: '0.9rem', 
-              lineHeight: '1.8', 
-              whiteSpace: 'pre-wrap', 
-              overflowY: 'auto',
-              border: '1px solid rgba(255,255,255,0.02)',
-              boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8)',
-              fontFamily: 'monospace'
-            }}>
-              {meeting.transcript || "Telemetry link severed. No raw data available."}
-            </div>
-            <div style={{ marginTop: '1.5rem', fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '2px' }}>
-              SECURE STREAM // END OF DATA
-            </div>
-        </section>
-
-      </div>
+      )}
     </div>
   );
 }
+

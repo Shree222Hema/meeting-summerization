@@ -3,39 +3,42 @@ import { PrismaNeon } from '@prisma/adapter-neon';
 import { PrismaClient } from '@prisma/client';
 import ws from 'ws';
 
+// Neon Serverless Configuration (only applied if using Neon)
+if (typeof window === 'undefined') {
+  neonConfig.webSocketConstructor = ws;
+}
+
 const globalForPrisma = globalThis;
 
-/**
- * Lazy Initializer for Prisma Client.
- * This prevents the database connection from being attempted during the Next.js Build Phase,
- * which is what causes the "Failed to collect page data" errors.
- */
 function createPrismaClient() {
-  // Guard for server-side only
-  if (typeof window !== 'undefined') return new PrismaClient();
-
-  // Configure Neon Serverless
-  neonConfig.webSocketConstructor = ws;
-  
   const connectionString = process.env.DATABASE_URL;
+  
   if (!connectionString) {
-    console.warn("DATABASE_URL is missing. Prisma might fail at runtime.");
+    console.error("❌ DATABASE_URL is missing in .env");
     return new PrismaClient();
   }
 
-  const pool = new Pool({ connectionString });
-  const adapter = new PrismaNeon(pool);
+  // SQLite Detection
+  if (connectionString.startsWith('file:') || connectionString.includes('.db')) {
+    console.log("🚀 DATABASE: Initializing local SQLite engine...");
+    return new PrismaClient();
+  }
 
-  return new PrismaClient({ adapter });
+  try {
+    const url = new URL(connectionString);
+    console.log(`🚀 DATABASE: Attempting connection to Neon [${url.hostname}]...`);
+    
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaNeon(pool);
+    
+    return new PrismaClient({ adapter });
+  } catch (err) {
+    console.error("🚨 PRISMA SETUP ERROR (Postgres):", err.message);
+    console.log("Fallback: Initializing standard PrismaClient...");
+    return new PrismaClient();
+  }
 }
 
-// Export a Proxy that initializes Prisma only when first accessed.
-// This allows us to keep the `import { prisma } from ...` syntax throughout the app.
-export const prisma = new Proxy({}, {
-  get(target, prop) {
-    if (!globalForPrisma.prisma) {
-      globalForPrisma.prisma = createPrismaClient();
-    }
-    return globalForPrisma.prisma[prop];
-  }
-});
+export const prisma = globalForPrisma.prisma || createPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
