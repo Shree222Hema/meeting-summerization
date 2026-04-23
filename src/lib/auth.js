@@ -17,6 +17,27 @@ export const authOptions = {
           throw new Error("Invalid credentials");
         }
 
+        // --- SIMPLE AUTH BYPASS ---
+        // One fixed email and any password as requested for simplicity
+        if (credentials.email === "admin@example.com") {
+          console.log("🚀 AUTH: Admin bypass used.");
+          let user = await prisma.user.findUnique({
+            where: { email: "admin@example.com" }
+          });
+
+          if (!user) {
+            user = await prisma.user.create({
+              data: {
+                name: "Admin User",
+                email: "admin@example.com",
+                password: await bcrypt.hash("password123", 12)
+              }
+            });
+          }
+          return user;
+        }
+        // ---------------------------
+
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email

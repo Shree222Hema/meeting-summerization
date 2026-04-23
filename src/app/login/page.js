@@ -51,6 +51,9 @@ export default function LoginPage() {
           </div>
           <h2 style={{ fontSize: '1.8rem', margin: 0, fontWeight: 700, color: 'var(--text-main)', letterSpacing: '2px' }}>SYSTEM ACCESS</h2>
           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '0.95rem' }}>Identify yourself to Intel Hub</p>
+          <p style={{ color: 'rgba(6,182,212,0.6)', marginTop: '1rem', fontSize: '0.8rem', fontStyle: 'italic' }}>
+            Hint: admin@example.com / any password
+          </p>
         </div>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -99,9 +102,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '2rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-          No operative profile? <Link href="/register" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', fontWeight: 600 }}>Register credentials →</Link>
-        </div>
+        {/* Registration disabled as requested */}
       </div>
     </div>
   );
