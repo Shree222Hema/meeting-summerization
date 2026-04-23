@@ -24,19 +24,22 @@ function createPrismaClient() {
     return new PrismaClient();
   }
 
-  try {
-    const url = new URL(connectionString);
-    console.log(`🚀 DATABASE: Attempting connection to Neon [${url.hostname}]...`);
-    
-    const pool = new Pool({ connectionString });
-    const adapter = new PrismaNeon(pool);
-    
-    return new PrismaClient({ adapter });
-  } catch (err) {
-    console.error("🚨 PRISMA SETUP ERROR (Postgres):", err.message);
-    console.log("Fallback: Initializing standard PrismaClient...");
-    return new PrismaClient();
+  // Neon Detection
+  if (connectionString.includes('neon.tech')) {
+    try {
+      console.log(`🚀 DATABASE: Initializing Neon Serverless adapter...`);
+      const pool = new Pool({ connectionString });
+      const adapter = new PrismaNeon(pool);
+      return new PrismaClient({ adapter });
+    } catch (err) {
+      console.error("🚨 NEON ADAPTER ERROR:", err.message);
+      return new PrismaClient();
+    }
   }
+
+  // Default Postgres (Railway, Supabase, etc.)
+  console.log("🚀 DATABASE: Initializing standard PostgreSQL engine...");
+  return new PrismaClient();
 }
 
 export const prisma = globalForPrisma.prisma || createPrismaClient();

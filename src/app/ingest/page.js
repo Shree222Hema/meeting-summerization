@@ -50,6 +50,7 @@ export default function IngestPage() {
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
+  const [language, setLanguage] = useState('English');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const router = useRouter();
@@ -103,7 +104,7 @@ export default function IngestPage() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!text && !file && !url) {
       setError("Please provide a file, text, or URL.");
       return;
@@ -117,16 +118,30 @@ export default function IngestPage() {
     if (file) formData.append("file", file);
     if (text) formData.append("text", text);
     if (url) formData.append("url", url);
+    formData.append("language", language);
 
     try {
-      const res = await fetch('/api/meetings/upload', {
+      const res = await fetch('/api/meetings/synthesize', {
         method: 'POST',
         body: formData,
+        // Ensure no headers that could trigger Server Action logic
+        headers: {
+          'Accept': 'application/json',
+        }
       });
       
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || 'Upload Failed');
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errData = await res.json();
+          throw new Error(errData.detail || 'Synthesis Failed');
+        } else {
+          const textError = await res.text();
+          // Extract title if it looks like an HTML error page
+          const titleMatch = textError.match(/<title>(.*?)<\/title>/);
+          const errorMsg = titleMatch ? titleMatch[1] : textError.substring(0, 100);
+          throw new Error(`Server Error: ${errorMsg}`);
+        }
       }
       
       const newMeeting = await res.json();
@@ -169,7 +184,33 @@ export default function IngestPage() {
             <div className="loader-aurora" style={{ opacity: loading ? 1 : 0, width: '24px', height: '24px', borderWidth: '3px' }}></div>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            
+            {/* Language Selection */}
+            <div className="input-group">
+              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dim)', marginBottom: '0.5rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Intelligence Language</label>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {['English', 'Kannada'].map((lang) => (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => setLanguage(lang)}
+                    className="btn-innovative"
+                    style={{
+                      flex: 1,
+                      background: language === lang ? 'rgba(6, 182, 212, 0.1)' : 'rgba(0,0,0,0.2)',
+                      borderColor: language === lang ? 'var(--accent-cyan)' : 'var(--glass-border)',
+                      color: language === lang ? 'var(--accent-cyan)' : 'var(--text-dim)',
+                      boxShadow: language === lang ? 'var(--shadow-neon-cyan)' : 'none',
+                    }}
+                    disabled={loading}
+                  >
+                    {lang === 'Kannada' ? 'ಕನ್ನಡ' : 'English'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* File Dropzone */}
             <div>
               <label 
@@ -258,10 +299,10 @@ export default function IngestPage() {
 
             <StepProgress loading={loading} />
 
-            <button type="submit" className="btn-innovative primary-action" disabled={loading || (!text && !file && !url)} style={{ justifyContent: 'center', padding: '1.25rem', fontSize: '1.1rem', marginTop: '0.5rem', letterSpacing: '1px' }}>
+            <button type="button" onClick={handleSubmit} className="btn-innovative primary-action" disabled={loading || (!text && !file && !url)} style={{ justifyContent: 'center', padding: '1.25rem', fontSize: '1.1rem', marginTop: '0.5rem', letterSpacing: '1px' }}>
               {loading ? 'INITIATING SYNTHESIS...' : 'SYNTHESIZE INSIGHTS'}
             </button>
-          </form>
+          </div>
         </div>
       </div>
     </div>

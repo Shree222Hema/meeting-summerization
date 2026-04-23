@@ -6,35 +6,30 @@ import { Readable } from 'stream';
  */
 export async function convertToPCM(audioBuffer) {
   return new Promise((resolve, reject) => {
-    const pcmData = [];
     const inputStream = new Readable();
     inputStream.push(audioBuffer);
     inputStream.push(null);
 
+    const chunks = [];
     ffmpeg(inputStream)
-      .inputFormat('any')
       .audioFrequency(16000)
       .audioChannels(1)
       .format('s16le') // 16-bit PCM little endian
       .on('error', (err) => {
         reject(new Error(`FFmpeg error: ${err.message}`));
       })
-      .on('data', (chunk) => {
-        // Collect chunks
-      })
       .pipe()
       .on('data', (chunk) => {
-        // Convert Int16 to Float32
-        for (let i = 0; i < chunk.length; i += 2) {
-          const int16 = chunk.readInt16LE(i);
-          pcmData.push(int16 / 32768.0); // Normalize to [-1.0, 1.0]
-        }
+        chunks.push(chunk);
       })
       .on('end', () => {
-        resolve(new Float32Array(pcmData));
-      })
-      .on('error', (err) => {
-        reject(err);
+        const fullBuffer = Buffer.concat(chunks);
+        const float32Array = new Float32Array(fullBuffer.length / 2);
+        for (let i = 0; i < float32Array.length; i++) {
+          const int16 = fullBuffer.readInt16LE(i * 2);
+          float32Array[i] = int16 / 32768.0;
+        }
+        resolve(float32Array);
       });
   });
 }
