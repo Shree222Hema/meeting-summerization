@@ -451,3 +451,24 @@ h1, h2, h3, h4, h5, h6 {
 .reveal-delay-2 { animation-delay: 0.2s; }
 .reveal-delay-3 { animation-delay: 0.3s; }
 
+@keyframes tracking-in-expand {
+  0% { letter-spacing: -0.5em; opacity: 0; }
+  40% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-20px, 20px); }
+}
+
+@keyframes pulseCyan {
+  0%, 100% { opacity: 1; text-shadow: 0 0 15px var(--accent-cyan-glow); }
+  50% { opacity: 0.7; text-shadow: 0 0 5px var(--accent-cyan-glow); }
+}
+

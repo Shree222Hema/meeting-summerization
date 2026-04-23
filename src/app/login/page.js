@@ -100,6 +100,24 @@ export default function LoginPage() {
           <button type="submit" className="btn-innovative primary-action" disabled={loading} style={{ justifyContent: 'center', padding: '1rem', marginTop: '0.75rem', fontSize: '1rem', letterSpacing: '2px', background: 'linear-gradient(135deg, #0891b2 0%, var(--accent-cyan) 100%)', boxShadow: '0 4px 20px rgba(6,182,212,0.3)' }}>
             {loading ? <div className="loader-aurora" style={{ width: '20px', height: '20px', borderWidth: '2px', borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }}></div> : 'AUTHORIZE'}
           </button>
+
+          <div style={{ position: 'relative', textAlign: 'center', margin: '1.5rem 0' }}>
+            <span style={{ background: '#0a0a0a', padding: '0 1rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', position: 'relative', zIndex: 1 }}>OR</span>
+            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'var(--glass-border)', zIndex: 0 }}></div>
+          </div>
+
+          <button 
+            type="button" 
+            onClick={() => {
+              setEmail("admin@example.com");
+              setPassword("password");
+              setTimeout(() => document.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })), 100);
+            }} 
+            className="btn-innovative" 
+            style={{ width: '100%', justifyContent: 'center', borderColor: 'rgba(139,92,246,0.3)', color: '#A78BFA' }}
+          >
+            GET STARTED AS GUEST
+          </button>
         </form>
 
         {/* Registration disabled as requested */}

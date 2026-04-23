@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 
 const NAV_LINKS = [
-  { href: '/', label: 'Dashboard', color: 'var(--accent-cyan)', glow: 'rgba(6,182,212,0.3)' },
+  { href: '/dashboard', label: 'Dashboard', color: 'var(--accent-cyan)', glow: 'rgba(6,182,212,0.3)' },
   { href: '/ingest', label: 'Ingestion Hub', color: 'var(--accent-crimson)', glow: 'rgba(225,29,72,0.3)', badge: true },
   { href: '/chat', label: 'Intel Chat', color: '#A78BFA', glow: 'rgba(139,92,246,0.3)' },
 ];
@@ -14,7 +14,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  if (pathname === '/login' || pathname === '/register') return null;
+  if (pathname === '/login' || pathname === '/register' || (pathname === '/' && !session)) return null;
 
   const isActive = (path) => pathname === path;
 
