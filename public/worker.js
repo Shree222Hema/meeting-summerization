@@ -1,10 +1,10 @@
-import { pipeline, env } from '@xenova/transformers';
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
 
-console.log("[Worker] Script loaded and initializing...");
+console.log("[Worker] Static worker loaded from public folder.");
 
 // Configure transformers for the browser environment
 env.allowLocalModels = false;
-env.useBrowserCache = true; // Use browser cache for models
+env.useBrowserCache = true;
 
 class PipelineSingleton {
   static task = null;
@@ -15,7 +15,6 @@ class PipelineSingleton {
     if (this.instance === null) {
       this.instance = pipeline(this.task, this.model, { 
         progress_callback,
-        // Ensure we use the correct revision/branch if needed, but defaults are fine
       });
     }
     return this.instance;
@@ -42,7 +41,6 @@ class Text2TextGenerationPipeline extends PipelineSingleton {
   static model = 'Xenova/flan-t5-small';
 }
 
-// Listen for messages from the main thread
 self.addEventListener('message', async (event) => {
   const { action, payload } = event.data;
   console.log(`[Worker] Received action: ${action}`);
@@ -57,7 +55,6 @@ self.addEventListener('message', async (event) => {
         const { text, language, audioBuffer } = payload;
         let transcript = text;
 
-        // 1. Transcription (if audio provided)
         if (audioBuffer) {
           self.postMessage({ status: 'progress', step: 1, message: 'Transcribing audio...' });
           const transcriber = await AutomaticSpeechRecognitionPipeline.getInstance(x => {
@@ -74,7 +71,6 @@ self.addEventListener('message', async (event) => {
 
         const cleanedTranscript = transcript.replace(/\s+/g, ' ').trim();
 
-        // 2. Summary
         self.postMessage({ status: 'progress', step: 2, message: 'Generating summary...' });
         const summaryPipeline = await Text2TextGenerationPipeline.getInstance(x => {
            if (x.status === 'progress') self.postMessage({ status: 'download', data: x });
@@ -86,7 +82,6 @@ self.addEventListener('message', async (event) => {
         const summaryResult = await summaryPipeline(summaryPrompt, { max_new_tokens: 150 });
         const summary = summaryResult[0].generated_text;
 
-        // 3. Sentiment
         self.postMessage({ status: 'progress', step: 3, message: 'Analyzing sentiment...' });
         const sentimentPipeline = await SentimentAnalysisPipeline.getInstance(x => {
            if (x.status === 'progress') self.postMessage({ status: 'download', data: x });
@@ -98,7 +93,6 @@ self.addEventListener('message', async (event) => {
           score: Math.round(sentimentResult[0].score * 100)
         };
 
-        // 4. Action Items
         self.postMessage({ status: 'progress', step: 4, message: 'Extracting action items...' });
         const actionItemsPrompt = language.toLowerCase() === 'kannada'
           ? `ಈ ಸಭೆಯ ಪ್ರಮುಖ 3 ಕಾರ್ಯಗಳನ್ನು (action items) ಕನ್ನಡದಲ್ಲಿ ಪಟ್ಟಿ ಮಾಡಿ:\n\n${truncatedSummary}\n\nಕಾರ್ಯಗಳು:`
@@ -110,7 +104,6 @@ self.addEventListener('message', async (event) => {
           .filter(i => i.length > 5)
           .map(t => ({ task: t, assignee: "Unassigned", deadline: "TBD" }));
 
-        // 5. Embeddings for RAG
         self.postMessage({ status: 'progress', step: 5, message: 'Building knowledge base...' });
         const embedder = await EmbeddingPipeline.getInstance(x => {
            if (x.status === 'progress') self.postMessage({ status: 'download', data: x });

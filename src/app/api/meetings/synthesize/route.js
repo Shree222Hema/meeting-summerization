@@ -29,12 +29,21 @@ export async function POST(request) {
       return NextResponse.json({ detail: "Incomplete synthesis data provided." }, { status: 400 });
     }
 
+    // 1. Resolve User (Robustly handle stale session IDs)
+    const dbUser = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
+
+    if (!dbUser) {
+      return NextResponse.json({ detail: "Active user account not found in database. Please log out and log in again." }, { status: 404 });
+    }
+
     // DB Save
     const meeting = await prisma.meeting.create({
       data: {
         title: title || 'Strategic Synthesis',
         transcript: transcript,
-        userId: parseInt(session.user.id),
+        userId: dbUser.id,
         summary: {
           create: {
             content: summary,

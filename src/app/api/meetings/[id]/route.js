@@ -10,8 +10,15 @@ export async function GET(request, { params }) {
 
     const resolvedParams = await params;
     const meetingId = parseInt(resolvedParams.id);
+
+    const dbUser = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
+
+    if (!dbUser) return NextResponse.json({ detail: "Account not found" }, { status: 404 });
+
     const meeting = await prisma.meeting.findUnique({
-      where: { id: meetingId, userId: parseInt(session.user.id) },
+      where: { id: meetingId, userId: dbUser.id },
       include: {
         summary: true,
         actionItems: true
@@ -50,8 +57,15 @@ export async function DELETE(request, { params }) {
 
     const resolvedParams = await params;
     const meetingId = parseInt(resolvedParams.id);
+
+    const dbUser = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
+
+    if (!dbUser) return NextResponse.json({ detail: "Account not found" }, { status: 404 });
+
     await prisma.meeting.delete({
-      where: { id: meetingId, userId: parseInt(session.user.id) }
+      where: { id: meetingId, userId: dbUser.id }
     });
     return NextResponse.json({ message: `Meeting ${meetingId} deleted successfully.` });
   } catch (err) {

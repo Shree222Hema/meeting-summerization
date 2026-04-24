@@ -10,8 +10,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const dbUser = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
+
+    if (!dbUser) return NextResponse.json([], { status: 200 }); // Return empty list if user not in DB yet
+
     const meetings = await prisma.meeting.findMany({
-      where: { userId: parseInt(session.user.id) },
+      where: { userId: dbUser.id },
       orderBy: { createdAt: 'desc' },
       select: { id: true, title: true, createdAt: true }
     });

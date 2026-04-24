@@ -55,16 +55,33 @@ export default function IngestPage() {
   const [stepMessage, setStepMessage] = useState('');
   
   const worker = useRef(null);
+  const workerResponsive = useRef(false);
 
   useEffect(() => {
     if (!worker.current) {
-      worker.current = new Worker(new URL('../../lib/worker.js', import.meta.url));
+      worker.current = new Worker('/worker.js', { type: 'module' });
+      console.log("[Ingest] Static worker initialized from public folder...");
+      worker.current.postMessage({ action: 'ping' });
+      
+      // Connection timeout: If no pong in 5s, the worker likely failed to load
+      const connTimeout = setTimeout(() => {
+        if (!workerResponsive.current) {
+          setError("AI Engine failed to start. This usually happens if your browser blocks Web Workers or if there's a network issue. Try refreshing or using a different browser (Chrome/Edge recommended).");
+          setLoading(false);
+        }
+      }, 5000);
+      window.workerConnTimeout = connTimeout;
     }
 
     const onMessageReceived = async (e) => {
       const { status, step, message, data, error } = e.data;
 
       switch (status) {
+        case 'pong':
+          console.log("[Ingest] Worker is alive and responsive.");
+          workerResponsive.current = true;
+          if (window.workerConnTimeout) clearTimeout(window.workerConnTimeout);
+          break;
         case 'progress':
           setCurrentStep(step);
           setStepMessage(message);
@@ -73,11 +90,13 @@ export default function IngestPage() {
           setStepMessage(`Downloading AI Model: ${Math.round(data.loaded / 1048576)}MB / ${Math.round(data.total / 1048576)}MB`);
           break;
         case 'complete':
+          if (window.synthesisWatchdog) clearTimeout(window.synthesisWatchdog);
           setCurrentStep(6);
           setStepMessage('Persisting results to server...');
           await persistResults(data);
           break;
         case 'error':
+          if (window.synthesisWatchdog) clearTimeout(window.synthesisWatchdog);
           setError(`AI Error: ${error}`);
           setLoading(false);
           break;
@@ -157,7 +176,15 @@ export default function IngestPage() {
   };
 
   const handleSubmit = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+    e.preventDefault();
+    setError('');
+    
+    if (!workerResponsive.current) {
+      setError("AI Engine is still initializing. Please wait a few seconds and try again. If this message persists, refresh the page.");
+      return;
+    }
+
+    setLoading(true);
     if (!text && !file && !url) {
       setError("Please provide a file, text, or URL.");
       return;
@@ -179,38 +206,85 @@ export default function IngestPage() {
         finalPayload.text = data.transcript;
       } else if (file) {
         const fileExt = file.name.split('.').pop().toLowerCase();
-        if (['mp3', 'wav', 'm4a', 'mp4', 'webm', 'mov'].includes(fileExt)) {
+        
+        // 1. Audio Processing (Client-Side)
+        if (['mp3', 'wav', 'm4a', 'mp4', 'webm', 'mov', 'aac', 'ogg', 'oga', 'flac'].includes(fileExt)) {
            setStepMessage('Decoding audio in browser...');
            try {
              const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
              const arrayBuffer = await file.arrayBuffer();
              const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-             
-             // Whisper expects 16kHz mono PCM Float32Array
-             // We take the first channel if it's stereo
              finalPayload.audioBuffer = audioBuffer.getChannelData(0);
-             
-             // Clean up
              await audioContext.close();
            } catch (audioErr) {
              console.error("Audio Decoding Error:", audioErr);
              throw new Error(`Browser failed to decode this audio format. Try a standard MP3 or WAV file.`);
            }
-        } else {
-           setStepMessage('Parsing source file...');
-           const formData = new FormData();
-           formData.append("file", file);
-           const res = await fetch('/api/meetings/parse-text', { method: 'POST', body: formData });
-           if (!res.ok) {
-             const errorData = await res.json();
-             throw new Error(errorData.detail || "File parsing failed");
+        } 
+        // 2. DOCX Processing (Client-Side)
+        else if (fileExt === 'docx') {
+           setStepMessage('Parsing document locally...');
+           const mammoth = await import('mammoth');
+           const arrayBuffer = await file.arrayBuffer();
+           const result = await mammoth.extractRawText({ arrayBuffer });
+           finalPayload.text = result.value;
+        }
+        // 3. PDF Processing (Client-Side)
+        else if (fileExt === 'pdf') {
+           setStepMessage('Extracting PDF text locally...');
+           try {
+             const pdfjs = await import('pdfjs-dist');
+             pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+             
+             const arrayBuffer = await file.arrayBuffer();
+             const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+             let fullText = "";
+             for (let i = 1; i <= pdf.numPages; i++) {
+               setStepMessage(`Extracting PDF text: Page ${i} / ${pdf.numPages}...`);
+               const page = await pdf.getPage(i);
+               const content = await page.getTextContent();
+               const pageText = content.items.map(item => item.str).join(" ");
+               fullText += pageText + "\n";
+             }
+             finalPayload.text = fullText;
+             console.log(`[Ingest] PDF Extraction complete. Total characters: ${fullText.length}`);
+             await pdf.destroy();
+
+             if (fullText.trim().length === 0) {
+               throw new Error("This PDF appears to be empty or contains only images (scanned). Please upload a text-based PDF or copy the text manually.");
+             }
+           } catch (pdfErr) {
+             console.error("PDF Parsing Error:", pdfErr);
+             throw new Error("Local PDF parsing failed. Try copying text manually.");
            }
-           const data = await res.json();
-           finalPayload.text = data.text;
+        }
+        // 4. TXT Processing (Client-Side)
+        else if (fileExt === 'txt') {
+           setStepMessage('Reading text file...');
+           finalPayload.text = await file.text();
+        }
+        else {
+           throw new Error(`Unsupported file format: .${fileExt}`);
         }
       }
 
+      console.log("[Ingest] Sending payload to worker...", { 
+        hasAudio: !!finalPayload.audioBuffer, 
+        textLength: finalPayload.text?.length || 0 
+      });
+      
+      // Watchdog timer: If no response in 5 minutes, something is wrong
+      const watchdog = setTimeout(() => {
+        if (loading) {
+          setError("Synthesis timed out. The file might be too large or the AI engine is unresponsive. Please try a smaller file.");
+          setLoading(false);
+        }
+      }, 300000); // 5 minutes
+
       worker.current.postMessage({ action: 'synthesize', payload: finalPayload });
+      
+      // We'll clear this watchdog in the complete/error cases (handled in useEffect)
+      window.synthesisWatchdog = watchdog;
     } catch (err) {
       setError(err.message);
       setLoading(false);
