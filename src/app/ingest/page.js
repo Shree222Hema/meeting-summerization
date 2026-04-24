@@ -1,34 +1,27 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 const SYNTHESIS_STEPS = [
-  'Ingesting source data...',
+  'Initializing AI Engine...',
   'Running transcription engine...',
   'Generating executive summary...',
   'Analyzing sentiment vectors...',
   'Extracting action items...',
-  'Building knowledge embeddings...',
+  'Building knowledge base...',
   'Persisting to secure archive...',
 ];
 
-function StepProgress({ loading }) {
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    if (!loading) { setStep(0); return; }
-    const interval = setInterval(() => {
-      setStep(prev => prev < SYNTHESIS_STEPS.length - 1 ? prev + 1 : prev);
-    }, 2200);
-    return () => clearInterval(interval);
-  }, [loading]);
-
+function StepProgress({ loading, step, message }) {
   if (!loading) return null;
 
   return (
     <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1.5rem', border: '1px solid var(--glass-border)' }}>
-      <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--text-muted)', marginBottom: '1rem', fontWeight: 700 }}>Synthesis Pipeline</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--text-muted)', fontWeight: 700 }}>Synthesis Pipeline</div>
+        {message && <div style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', animation: 'pulse 2s infinite' }}>{message}</div>}
+      </div>
       {SYNTHESIS_STEPS.map((s, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', opacity: i > step ? 0.25 : 1, transition: 'opacity 0.5s ease' }}>
           <span style={{ width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.65rem', fontWeight: 700,
@@ -58,6 +51,66 @@ export default function IngestPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [stepMessage, setStepMessage] = useState('');
+  
+  const worker = useRef(null);
+
+  useEffect(() => {
+    if (!worker.current) {
+      worker.current = new Worker(new URL('../../lib/worker.js', import.meta.url));
+    }
+
+    const onMessageReceived = async (e) => {
+      const { status, step, message, data, error } = e.data;
+
+      switch (status) {
+        case 'progress':
+          setCurrentStep(step);
+          setStepMessage(message);
+          break;
+        case 'download':
+          setStepMessage(`Downloading AI Model: ${Math.round(data.loaded / 1048576)}MB / ${Math.round(data.total / 1048576)}MB`);
+          break;
+        case 'complete':
+          setCurrentStep(6);
+          setStepMessage('Persisting results to server...');
+          await persistResults(data);
+          break;
+        case 'error':
+          setError(`AI Error: ${error}`);
+          setLoading(false);
+          break;
+      }
+    };
+
+    worker.current.addEventListener('message', onMessageReceived);
+    return () => worker.current?.removeEventListener('message', onMessageReceived);
+  }, []);
+
+  const persistResults = async (processedData) => {
+    try {
+      const res = await fetch('/api/meetings/synthesize', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: file ? file.name : (url ? "External Audio Source" : "Manual Text Import"),
+          transcript: processedData.transcript,
+          summary: processedData.summary,
+          sentiment: processedData.sentiment,
+          actionItems: processedData.actionItems,
+          chunks: processedData.chunks
+        }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!res.ok) throw new Error('Failed to save to database');
+      const savedMeeting = await res.json();
+      router.push(`/meetings/${savedMeeting.id}`);
+    } catch (err) {
+      setError(`Persistence Error: ${err.message}`);
+      setLoading(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -112,40 +165,41 @@ export default function IngestPage() {
 
     setLoading(true);
     setError(null);
-
-    const formData = new FormData();
-    formData.append("title", file ? file.name : (url ? "External Audio Source" : "Manual Text Import"));
-    if (file) formData.append("file", file);
-    if (text) formData.append("text", text);
-    if (url) formData.append("url", url);
-    formData.append("language", language);
+    setCurrentStep(0);
+    setStepMessage('Waking up AI engine...');
 
     try {
-      const res = await fetch('/api/meetings/synthesize', {
-        method: 'POST',
-        body: formData,
-        // Ensure no headers that could trigger Server Action logic
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
-      
-      if (!res.ok) {
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const errData = await res.json();
-          throw new Error(errData.detail || 'Synthesis Failed');
+      let finalPayload = { text, language };
+
+      if (url) {
+        setStepMessage('Extracting YouTube transcript...');
+        const res = await fetch(`/api/youtube?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error("Could not fetch YouTube transcript");
+        const data = await res.json();
+        finalPayload.text = data.transcript;
+      } else if (file) {
+        setStepMessage('Parsing source file...');
+        // For audio, we need to convert to PCM Float32Array for the worker
+        if (['mp3', 'wav', 'm4a', 'mp4', 'webm', 'mov'].includes(file.name.split('.').pop().toLowerCase())) {
+           // We'll use a server helper for complex audio conversion to avoid heavy browser libraries
+           const formData = new FormData();
+           formData.append("file", file);
+           const res = await fetch('/api/meetings/parse-audio', { method: 'POST', body: formData });
+           if (!res.ok) throw new Error("Audio parsing failed");
+           const data = await res.json();
+           finalPayload.audioBuffer = new Float32Array(data.pcm);
         } else {
-          const textError = await res.text();
-          // Extract title if it looks like an HTML error page
-          const titleMatch = textError.match(/<title>(.*?)<\/title>/);
-          const errorMsg = titleMatch ? titleMatch[1] : textError.substring(0, 100);
-          throw new Error(`Server Error: ${errorMsg}`);
+           // Simple text/pdf/docx parsing can still happen on server or via client libraries
+           const formData = new FormData();
+           formData.append("file", file);
+           const res = await fetch('/api/meetings/parse-text', { method: 'POST', body: formData });
+           if (!res.ok) throw new Error("File parsing failed");
+           const data = await res.json();
+           finalPayload.text = data.text;
         }
       }
-      
-      const newMeeting = await res.json();
-      router.push(`/meetings/${newMeeting.id}`);
+
+      worker.current.postMessage({ action: 'synthesize', payload: finalPayload });
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -297,7 +351,7 @@ export default function IngestPage() {
 
             {error && <div style={{ color: 'var(--accent-crimson)', fontSize: '0.95rem', padding: '1rem', background: 'rgba(225, 29, 72, 0.1)', borderRadius: '8px', border: '1px solid rgba(225, 29, 72, 0.3)', textAlign: 'center' }}>⚠️ {error}</div>}
 
-            <StepProgress loading={loading} />
+            <StepProgress loading={loading} step={currentStep} message={stepMessage} />
 
             <button type="button" onClick={handleSubmit} className="btn-innovative primary-action" disabled={loading || (!text && !file && !url)} style={{ justifyContent: 'center', padding: '1.25rem', fontSize: '1.1rem', marginTop: '0.5rem', letterSpacing: '1px' }}>
               {loading ? 'INITIATING SYNTHESIS...' : 'SYNTHESIZE INSIGHTS'}
