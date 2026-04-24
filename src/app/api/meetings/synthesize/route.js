@@ -82,4 +82,3 @@ export async function POST(request) {
     return NextResponse.json({ detail: "Failed to save synthesis results: " + err.message }, { status: 500 });
   }
 }
-}

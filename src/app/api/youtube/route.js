@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { YoutubeTranscript } from 'youtube-transcript';
+import { YoutubeTranscript } from 'youtube-transcript/dist/youtube-transcript.esm.js';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
