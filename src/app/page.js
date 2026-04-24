@@ -18,15 +18,27 @@ export default function Home() {
     }
     
     setAuthLoading(true);
-    const res = await signIn("credentials", {
-      redirect: false,
-      email: "admin@example.com",
-      password: "password",
-    });
-    
-    if (res?.ok) {
-      router.push('/dashboard');
-    } else {
+    console.log("🚀 AUTH: Initiating quick start sign-in...");
+    try {
+      const res = await signIn("credentials", {
+        redirect: false,
+        email: "admin@example.com",
+        password: "password",
+      });
+      
+      console.log("🚀 AUTH: signIn response:", res);
+      
+      if (res?.ok) {
+        console.log("✅ AUTH: Sign-in successful, redirecting to dashboard...");
+        router.push('/dashboard');
+      } else {
+        console.error("❌ AUTH: Sign-in failed:", res?.error);
+        alert(`Authentication failed: ${res?.error || 'Unknown error'}. Please check if DATABASE_URL and NEXTAUTH_SECRET are configured in your deployment.`);
+        setAuthLoading(false);
+      }
+    } catch (err) {
+      console.error("🚨 AUTH: Unexpected error during sign-in:", err);
+      alert("An unexpected error occurred. Please check the browser console.");
       setAuthLoading(false);
     }
   };

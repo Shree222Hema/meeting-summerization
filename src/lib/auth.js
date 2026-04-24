@@ -13,51 +13,71 @@ export const authOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        console.log("🔐 AUTH: Authorize attempt for:", credentials?.email);
+        
         if (!credentials?.email || !credentials?.password) {
+          console.error("❌ AUTH: Missing credentials");
           throw new Error("Invalid credentials");
         }
 
         // --- SIMPLE AUTH BYPASS ---
         // One fixed email and any password as requested for simplicity
         if (credentials.email === "admin@example.com") {
-          console.log("🚀 AUTH: Admin bypass used.");
-          let user = await prisma.user.findUnique({
-            where: { email: "admin@example.com" }
-          });
-
-          if (!user) {
-            user = await prisma.user.create({
-              data: {
-                name: "Admin User",
-                email: "admin@example.com",
-                password: await bcrypt.hash("password123", 12)
-              }
+          console.log("🚀 AUTH: Admin bypass triggered.");
+          try {
+            let user = await prisma.user.findUnique({
+              where: { email: "admin@example.com" }
             });
+
+            if (!user) {
+              console.log("🚀 AUTH: Admin user not found, creating default...");
+              user = await prisma.user.create({
+                data: {
+                  name: "Admin User",
+                  email: "admin@example.com",
+                  password: await bcrypt.hash("password123", 12)
+                }
+              });
+              console.log("✅ AUTH: Admin user created successfully.");
+            } else {
+              console.log("✅ AUTH: Admin user found in database.");
+            }
+            return user;
+          } catch (dbError) {
+            console.error("🚨 AUTH: Database error during bypass:", dbError.message);
+            throw new Error("Database connection failed. Please check your DATABASE_URL.");
           }
-          return user;
         }
         // ---------------------------
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
+        try {
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email
+            }
+          });
+
+          if (!user || !user?.password) {
+            console.warn("⚠️ AUTH: User not found or missing password:", credentials.email);
+            throw new Error("Invalid credentials");
           }
-        });
 
-        if (!user || !user?.password) {
-          throw new Error("Invalid credentials");
+          const isCorrectPassword = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isCorrectPassword) {
+            console.warn("⚠️ AUTH: Incorrect password for:", credentials.email);
+            throw new Error("Invalid credentials");
+          }
+
+          console.log("✅ AUTH: Standard authentication successful.");
+          return user;
+        } catch (error) {
+          console.error("🚨 AUTH: Unexpected error:", error.message);
+          throw error;
         }
-
-        const isCorrectPassword = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isCorrectPassword) {
-          throw new Error("Invalid credentials");
-        }
-
-        return user;
       }
     })
   ],
