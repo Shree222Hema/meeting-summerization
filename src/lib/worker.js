@@ -11,7 +11,10 @@ class PipelineSingleton {
 
   static async getInstance(progress_callback = null) {
     if (this.instance === null) {
-      this.instance = pipeline(this.task, this.model, { progress_callback });
+      this.instance = pipeline(this.task, this.model, { 
+        progress_callback,
+        // Ensure we use the correct revision/branch if needed, but defaults are fine
+      });
     }
     return this.instance;
   }
@@ -71,7 +74,9 @@ self.addEventListener('message', async (event) => {
 
         // 2. Summary
         self.postMessage({ status: 'progress', step: 2, message: 'Generating summary...' });
-        const summaryPipeline = await Text2TextGenerationPipeline.getInstance();
+        const summaryPipeline = await Text2TextGenerationPipeline.getInstance(x => {
+           if (x.status === 'progress') self.postMessage({ status: 'download', data: x });
+        });
         const truncatedSummary = cleanedTranscript.substring(0, 3000);
         const summaryPrompt = language.toLowerCase() === 'kannada' 
           ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedSummary}\n\nಸಾರಾಂಶ:`
@@ -81,7 +86,9 @@ self.addEventListener('message', async (event) => {
 
         // 3. Sentiment
         self.postMessage({ status: 'progress', step: 3, message: 'Analyzing sentiment...' });
-        const sentimentPipeline = await SentimentAnalysisPipeline.getInstance();
+        const sentimentPipeline = await SentimentAnalysisPipeline.getInstance(x => {
+           if (x.status === 'progress') self.postMessage({ status: 'download', data: x });
+        });
         const truncatedSentiment = cleanedTranscript.substring(0, 2000);
         const sentimentResult = await sentimentPipeline(truncatedSentiment);
         const sentiment = {
@@ -103,7 +110,9 @@ self.addEventListener('message', async (event) => {
 
         // 5. Embeddings for RAG
         self.postMessage({ status: 'progress', step: 5, message: 'Building knowledge base...' });
-        const embedder = await EmbeddingPipeline.getInstance();
+        const embedder = await EmbeddingPipeline.getInstance(x => {
+           if (x.status === 'progress') self.postMessage({ status: 'download', data: x });
+        });
         const chunks = chunkText(cleanedTranscript);
         const chunkData = [];
         for (const chunk of chunks) {

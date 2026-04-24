@@ -178,22 +178,33 @@ export default function IngestPage() {
         const data = await res.json();
         finalPayload.text = data.transcript;
       } else if (file) {
-        setStepMessage('Parsing source file...');
-        // For audio, we need to convert to PCM Float32Array for the worker
-        if (['mp3', 'wav', 'm4a', 'mp4', 'webm', 'mov'].includes(file.name.split('.').pop().toLowerCase())) {
-           // We'll use a server helper for complex audio conversion to avoid heavy browser libraries
-           const formData = new FormData();
-           formData.append("file", file);
-           const res = await fetch('/api/meetings/parse-audio', { method: 'POST', body: formData });
-           if (!res.ok) throw new Error("Audio parsing failed");
-           const data = await res.json();
-           finalPayload.audioBuffer = new Float32Array(data.pcm);
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        if (['mp3', 'wav', 'm4a', 'mp4', 'webm', 'mov'].includes(fileExt)) {
+           setStepMessage('Decoding audio in browser...');
+           try {
+             const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+             const arrayBuffer = await file.arrayBuffer();
+             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+             
+             // Whisper expects 16kHz mono PCM Float32Array
+             // We take the first channel if it's stereo
+             finalPayload.audioBuffer = audioBuffer.getChannelData(0);
+             
+             // Clean up
+             await audioContext.close();
+           } catch (audioErr) {
+             console.error("Audio Decoding Error:", audioErr);
+             throw new Error(`Browser failed to decode this audio format. Try a standard MP3 or WAV file.`);
+           }
         } else {
-           // Simple text/pdf/docx parsing can still happen on server or via client libraries
+           setStepMessage('Parsing source file...');
            const formData = new FormData();
            formData.append("file", file);
            const res = await fetch('/api/meetings/parse-text', { method: 'POST', body: formData });
-           if (!res.ok) throw new Error("File parsing failed");
+           if (!res.ok) {
+             const errorData = await res.json();
+             throw new Error(errorData.detail || "File parsing failed");
+           }
            const data = await res.json();
            finalPayload.text = data.text;
         }

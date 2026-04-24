@@ -2,15 +2,6 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { convertToPCM } from '@/lib/ffmpeg';
-import { 
-  transcribeAudio, 
-  generateSummary, 
-  analyzeSentiment, 
-  extractActionItems, 
-  generateEmbedding, 
-  chunkText 
-} from '@/lib/nlp';
 
 // Next.js config to allow longer execution for large models
 export const maxDuration = 300;

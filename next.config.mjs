@@ -16,7 +16,6 @@ const nextConfig = {
     'ws',
     'pg',
     '@xenova/transformers', 
-    'fluent-ffmpeg', 
     'youtube-transcript', 
     'pdf-parse', 
     'mammoth'
