@@ -76,11 +76,18 @@ self.addEventListener('message', async (event) => {
            if (x.status === 'progress') self.postMessage({ status: 'download', data: x });
         });
         const truncatedSummary = cleanedTranscript.substring(0, 3000);
-        const summaryPrompt = language.toLowerCase() === 'kannada' 
-          ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedSummary}\n\nಸಾರಾಂಶ:`
-          : `Summarize the following meeting transcript in English:\n\n${truncatedSummary}\n\nSummary:`;
-        const summaryResult = await summaryPipeline(summaryPrompt, { max_new_tokens: 150 });
-        const summary = summaryResult[0].generated_text;
+        let summary = "";
+        
+        if (truncatedSummary.length < 150) {
+          // If the transcript is very short (like a YouTube Short), don't summarize it, just use it.
+          summary = truncatedSummary;
+        } else {
+          const summaryPrompt = language.toLowerCase() === 'kannada' 
+            ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedSummary}\n\nಸಾರಾಂಶ:`
+            : `Summarize the following meeting transcript in English:\n\n${truncatedSummary}\n\nSummary:`;
+          const summaryResult = await summaryPipeline(summaryPrompt, { max_new_tokens: 150 });
+          summary = summaryResult[0].generated_text || truncatedSummary;
+        }
 
         self.postMessage({ status: 'progress', step: 3, message: 'Analyzing sentiment...' });
         const sentimentPipeline = await SentimentAnalysisPipeline.getInstance(x => {
@@ -99,10 +106,15 @@ self.addEventListener('message', async (event) => {
           : `Extract exactly 3 concise action items from this meeting transcript in English. Output them separated by newline:\n\n${truncatedSummary}\n\nAction Items:`;
         const actionItemsResult = await summaryPipeline(actionItemsPrompt, { max_new_tokens: 100 });
         const actionItemsOutput = actionItemsResult[0].generated_text;
-        const actionItems = actionItemsOutput.split('\n')
+        let actionItems = actionItemsOutput.split('\n')
           .map(i => i.replace(/^[-*•\d. ]+/, '').trim())
           .filter(i => i.length > 5)
           .map(t => ({ task: t, assignee: "Unassigned", deadline: "TBD" }));
+
+        // Fallback for very short content or empty results
+        if (actionItems.length === 0 && truncatedSummary.length > 0) {
+          actionItems = [{ task: "Review transcript details", assignee: "Admin", deadline: "ASAP" }];
+        }
 
         self.postMessage({ status: 'progress', step: 5, message: 'Building knowledge base...' });
         const embedder = await EmbeddingPipeline.getInstance(x => {

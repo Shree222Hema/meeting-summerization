@@ -201,8 +201,8 @@ export default function IngestPage() {
       if (url) {
         setStepMessage('Extracting YouTube transcript...');
         const res = await fetch(`/api/youtube?url=${encodeURIComponent(url)}`);
-        if (!res.ok) throw new Error("Could not fetch YouTube transcript");
         const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Could not fetch YouTube transcript");
         finalPayload.text = data.transcript;
       } else if (file) {
         const fileExt = file.name.split('.').pop().toLowerCase();
