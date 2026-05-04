@@ -60,8 +60,9 @@ export default function IngestPage() {
 
   useEffect(() => {
     if (!worker.current) {
-      worker.current = new Worker('/worker.js', { type: 'module' });
-      console.log("[Ingest] Static worker initialized from public folder...");
+      const workerPath = new URL('/worker.js', window.location.origin).href;
+      worker.current = new Worker(workerPath, { type: 'module' });
+      console.log("[Ingest] Worker initialized from:", workerPath);
       worker.current.postMessage({ action: 'ping' });
       
       // Connection timeout: If no pong in 5s, the worker likely failed to load
@@ -139,16 +140,30 @@ export default function IngestPage() {
   };
 
   const startRecording = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError("Microphone access is only available on secure (HTTPS) connections. Please ensure your site is using SSL.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/mp4';
+        
+      const recorder = new MediaRecorder(stream, { mimeType });
       const chunks = [];
       
-      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
       recorder.onstop = () => {
         setIsProcessingBlob(true);
-        const audioBlob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
-        const audioFile = new File([audioBlob], `Live_Intel_${new Date().getTime()}.webm`, { type: 'audio/webm' });
+        const audioBlob = new Blob(chunks, { type: mimeType });
+        const audioFile = new File([audioBlob], `Live_Intel_${new Date().getTime()}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`, { type: mimeType });
         setFile(audioFile);
         setIsProcessingBlob(false);
         stream.getTracks().forEach(track => track.stop());
