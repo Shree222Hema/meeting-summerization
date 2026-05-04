@@ -49,6 +49,7 @@ export default function IngestPage() {
   const router = useRouter();
 
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessingBlob, setIsProcessingBlob] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
@@ -145,9 +146,11 @@ export default function IngestPage() {
       
       recorder.ondataavailable = (e) => chunks.push(e.data);
       recorder.onstop = () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+        setIsProcessingBlob(true);
+        const audioBlob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
         const audioFile = new File([audioBlob], `Live_Intel_${new Date().getTime()}.webm`, { type: 'audio/webm' });
         setFile(audioFile);
+        setIsProcessingBlob(false);
         stream.getTracks().forEach(track => track.stop());
       };
       
@@ -200,7 +203,7 @@ export default function IngestPage() {
 
       if (url) {
         setStepMessage('Extracting YouTube transcript...');
-        const res = await fetch(`/api/youtube?url=${encodeURIComponent(url)}`);
+        const res = await fetch(`/api/youtube?url=${encodeURIComponent(url)}&lang=${language}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Could not fetch YouTube transcript");
         finalPayload.text = data.transcript;
@@ -234,10 +237,11 @@ export default function IngestPage() {
            setStepMessage('Extracting PDF text locally...');
            try {
              const pdfjs = await import('pdfjs-dist');
-             pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+             pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
              
              const arrayBuffer = await file.arrayBuffer();
-             const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+             const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+             const pdf = await loadingTask.promise;
              let fullText = "";
              for (let i = 1; i <= pdf.numPages; i++) {
                setStepMessage(`Extracting PDF text: Page ${i} / ${pdf.numPages}...`);
@@ -255,7 +259,9 @@ export default function IngestPage() {
              }
            } catch (pdfErr) {
              console.error("PDF Parsing Error:", pdfErr);
-             throw new Error("Local PDF parsing failed. Try copying text manually.");
+             setError(`PDF Parsing Error: ${pdfErr.message || "Failed to extract text from this PDF."}`);
+             setLoading(false);
+             return;
            }
         }
         // 4. TXT Processing (Client-Side)
@@ -329,7 +335,7 @@ export default function IngestPage() {
             <div className="input-group">
               <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dim)', marginBottom: '0.5rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Intelligence Language</label>
               <div style={{ display: 'flex', gap: '1rem' }}>
-                {['English', 'Kannada'].map((lang) => (
+                {['English', 'Kannada', 'Hindi'].map((lang) => (
                   <button
                     key={lang}
                     type="button"
@@ -344,7 +350,7 @@ export default function IngestPage() {
                     }}
                     disabled={loading}
                   >
-                    {lang === 'Kannada' ? 'ಕನ್ನಡ' : 'English'}
+                    {lang === 'Kannada' ? 'ಕನ್ನಡ' : lang === 'Hindi' ? 'हिंदी' : 'English'}
                   </button>
                 ))}
               </div>
@@ -438,8 +444,8 @@ export default function IngestPage() {
 
             <StepProgress loading={loading} step={currentStep} message={stepMessage} />
 
-            <button type="button" onClick={handleSubmit} className="btn-innovative primary-action" disabled={loading || (!text && !file && !url)} style={{ justifyContent: 'center', padding: '1.25rem', fontSize: '1.1rem', marginTop: '0.5rem', letterSpacing: '1px' }}>
-              {loading ? 'INITIATING SYNTHESIS...' : 'SYNTHESIZE INSIGHTS'}
+            <button type="button" onClick={handleSubmit} className="btn-innovative primary-action" disabled={loading || isRecording || isProcessingBlob || (!text && !file && !url)} style={{ justifyContent: 'center', padding: '1.25rem', fontSize: '1.1rem', marginTop: '0.5rem', letterSpacing: '1px' }}>
+              {loading ? 'INITIATING SYNTHESIS...' : isProcessingBlob ? 'FINALIZING RECORDING...' : 'SYNTHESIZE INSIGHTS'}
             </button>
           </div>
         </div>

@@ -4,6 +4,7 @@ import https from 'https';
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get('url');
+  const lang = searchParams.get('lang') || 'en';
 
   if (!url) {
     return NextResponse.json({ detail: "URL is required" }, { status: 400 });
@@ -26,19 +27,18 @@ export async function GET(request) {
   }
 
   try {
-    const transcript = await fetchTranscriptNative(videoId);
+    const transcript = await fetchTranscriptNative(videoId, lang);
     return NextResponse.json({ transcript });
   } catch (err) {
-    console.error("❌ YouTube Native Error:", err);
+    console.error("❌ YouTube API Error:", err);
     return NextResponse.json({ 
-      detail: `YouTube blocked the automated link fetch. This is common on local networks. For now, please use 'Manual Text Entry' while I work on a more permanent server-side proxy.` 
+      detail: `YouTube transcript fetch failed: ${err.message}.` 
     }, { status: 500 });
   }
 }
 
-async function fetchTranscriptNative(videoId) {
+async function fetchTranscriptNative(videoId, targetLang = 'en') {
   return new Promise((resolve, reject) => {
-    // We try to fetch the video page to find the transcript metadata
     const options = {
       hostname: 'www.youtube.com',
       path: `/watch?v=${videoId}`,
@@ -53,30 +53,49 @@ async function fetchTranscriptNative(videoId) {
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', async () => {
         try {
-          // Look for captions JSON in the page source
+          // 1. Extract the captions metadata
           const regex = /"captionTracks":\[(.*?)\]/;
           const match = data.match(regex);
           if (!match) return reject(new Error("No captions found on this video."));
           
           const captionTracks = JSON.parse(`[${match[1]}]`);
-          const englishTrack = captionTracks.find(t => t.languageCode === 'en' || t.languageCode === 'en-US') || captionTracks[0];
           
-          if (!englishTrack) return reject(new Error("No English captions available."));
+          // 2. Determine target language code
+          const langMap = { 'english': 'en', 'hindi': 'hi', 'kannada': 'kn' };
+          const targetCode = langMap[targetLang.toLowerCase()] || targetLang;
 
-          // Fetch the actual XML transcript
-          https.get(englishTrack.baseUrl, (tRes) => {
+          // 3. Find the best track
+          const targetTrack = captionTracks.find(t => t.languageCode === targetCode || t.languageCode.startsWith(targetCode + '-')) 
+                             || captionTracks.find(t => t.languageCode === 'en' || t.languageCode === 'en-US') 
+                             || captionTracks[0];
+          
+          if (!targetTrack) return reject(new Error(`No suitable captions available.`));
+
+          // 4. Fetch the XML transcript
+          https.get(targetTrack.baseUrl, (tRes) => {
             let tData = '';
             tRes.on('data', (tChunk) => { tData += tChunk; });
             tRes.on('end', () => {
-              // Simple XML to Text conversion
-              const text = tData.replace(/<[^>]*>/g, ' ').replace(/&amp;#39;/g, "'").replace(/&quot;/g, '"');
-              resolve(text.trim());
+              // 5. Clean XML to plain text
+              const text = tData
+                .replace(/<text[^>]*>/g, '')
+                .replace(/<\/text>/g, ' ')
+                .replace(/<[^>]*>/g, '') // Remove remaining tags
+                .replace(/&amp;#39;/g, "'")
+                .replace(/&amp;/g, "&")
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'")
+                .replace(/\s+/g, ' ')
+                .trim();
+              
+              if (text.length < 5) return reject(new Error("Transcript extracted but was empty."));
+              resolve(text);
             });
-          }).on('error', reject);
+          }).on('error', (e) => reject(new Error(`Failed to fetch XML: ${e.message}`)));
         } catch (e) {
-          reject(e);
+          reject(new Error(`Parsing failed: ${e.message}`));
         }
       });
-    }).on('error', reject);
+    }).on('error', (e) => reject(new Error(`Connection failed: ${e.message}`)));
   });
 }

@@ -61,6 +61,8 @@ export async function generateSummary(text, language = 'english') {
   
   const prompt = language.toLowerCase() === 'kannada' 
     ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedText}\n\nಸಾರಾಂಶ:`
+    : language.toLowerCase() === 'hindi'
+    ? `इस बैठक का सारांश हिंदी में लिखें:\n\n${truncatedText}\n\nसारांश:`
     : `Summarize the following meeting transcript in English:\n\n${truncatedText}\n\nSummary:`
   
   const result = await qa(prompt, { max_new_tokens: 150 })
@@ -85,6 +87,8 @@ export async function extractActionItems(text, language = 'english') {
   
   const prompt = language.toLowerCase() === 'kannada'
     ? `ಈ ಸಭೆಯ ಪ್ರಮುಖ 3 ಕಾರ್ಯಗಳನ್ನು (action items) ಕನ್ನಡದಲ್ಲಿ ಪಟ್ಟಿ ಮಾಡಿ:\n\n${truncatedText}\n\nಕಾರ್ಯಗಳು:`
+    : language.toLowerCase() === 'hindi'
+    ? `इस बैठक के मुख्य 3 कार्य बिंदुओं (action items) को हिंदी में सूचीबद्ध करें:\n\n${truncatedText}\n\nकार्य बिंदु:`
     : `Extract exactly 3 concise action items from this meeting transcript in English. Output them separated by newline:\n\n${truncatedText}\n\nAction Items:`
   
   const result = await qa(prompt, { max_new_tokens: 100 })
@@ -97,6 +101,8 @@ export async function extractActionItems(text, language = 'english') {
   if (items.length === 0) {
     return language.toLowerCase() === 'kannada'
       ? [{ task: "ಸಭೆಯ ವಿವರಗಳನ್ನು ಪರಿಶೀಲಿಸಿ", assignee: "ತಂಡ", deadline: "ನಿರ್ಧರಿಸಲಾಗಿಲ್ಲ" }]
+      : language.toLowerCase() === 'hindi'
+      ? [{ task: "बैठक के विवरण की समीक्षा करें", assignee: "टीम", deadline: "टीबीडी" }]
       : [{ task: "Review transcript for hidden deadlines", assignee: "Team", deadline: "TBD" }]
   }
   

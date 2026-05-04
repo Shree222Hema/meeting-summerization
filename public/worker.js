@@ -84,6 +84,8 @@ self.addEventListener('message', async (event) => {
         } else {
           const summaryPrompt = language.toLowerCase() === 'kannada' 
             ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedSummary}\n\nಸಾರಾಂಶ:`
+            : language.toLowerCase() === 'hindi'
+            ? `इस बैठक का सारांश हिंदी में लिखें:\n\n${truncatedSummary}\n\nसारांश:`
             : `Summarize the following meeting transcript in English:\n\n${truncatedSummary}\n\nSummary:`;
           const summaryResult = await summaryPipeline(summaryPrompt, { max_new_tokens: 150 });
           summary = summaryResult[0].generated_text || truncatedSummary;
@@ -103,6 +105,8 @@ self.addEventListener('message', async (event) => {
         self.postMessage({ status: 'progress', step: 4, message: 'Extracting action items...' });
         const actionItemsPrompt = language.toLowerCase() === 'kannada'
           ? `ಈ ಸಭೆಯ ಪ್ರಮುಖ 3 ಕಾರ್ಯಗಳನ್ನು (action items) ಕನ್ನಡದಲ್ಲಿ ಪಟ್ಟಿ ಮಾಡಿ:\n\n${truncatedSummary}\n\nಕಾರ್ಯಗಳು:`
+          : language.toLowerCase() === 'hindi'
+          ? `इस बैठक के मुख्य 3 कार्य बिंदुओं (action items) को हिंदी में सूचीबद्ध करें:\n\n${truncatedSummary}\n\nकार्य बिंदु:`
           : `Extract exactly 3 concise action items from this meeting transcript in English. Output them separated by newline:\n\n${truncatedSummary}\n\nAction Items:`;
         const actionItemsResult = await summaryPipeline(actionItemsPrompt, { max_new_tokens: 100 });
         const actionItemsOutput = actionItemsResult[0].generated_text;
