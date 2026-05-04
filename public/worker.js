@@ -23,7 +23,7 @@ class PipelineSingleton {
 
 class AutomaticSpeechRecognitionPipeline extends PipelineSingleton {
   static task = 'automatic-speech-recognition';
-  static model = 'Xenova/whisper-tiny';
+  static model = 'Xenova/whisper-base';
 }
 
 class SentimentAnalysisPipeline extends PipelineSingleton {

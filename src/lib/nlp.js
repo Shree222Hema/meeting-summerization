@@ -20,7 +20,7 @@ class PipelineSingleton {
 // 1. STT (Whisper Multilingual)
 class AutomaticSpeechRecognitionPipeline extends PipelineSingleton {
   static task = 'automatic-speech-recognition'
-  static model = 'Xenova/whisper-tiny'
+  static model = 'Xenova/whisper-base'
 }
 
 // 2. Multilingual Sentiment Analysis
