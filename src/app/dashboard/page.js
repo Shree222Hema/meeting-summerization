@@ -29,6 +29,10 @@ export default function DashboardPage() {
   const meetingCount = useCountUp(meetings.length);
 
   useEffect(() => {
+    fetchMeetings();
+  }, [status]);
+
+  const fetchMeetings = () => {
     if (status === 'authenticated') {
       fetch('/api/meetings')
         .then(res => res.json())
@@ -41,7 +45,25 @@ export default function DashboardPage() {
           setLoading(false);
         });
     }
-  }, [status]);
+  };
+
+  const handleDelete = async (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!confirm("Are you sure you want to purge this intelligence report from the archive?")) return;
+
+    try {
+      const res = await fetch(`/api/meetings/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMeetings(meetings.filter(m => m.id !== id));
+      } else {
+        alert("Failed to delete the report.");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  };
 
   const filtered = useMemo(() =>
     meetings.filter(m => m.title?.toLowerCase().includes(search.toLowerCase())),
@@ -159,9 +181,20 @@ export default function DashboardPage() {
                     <span style={{ color: 'var(--text-muted)' }}>
                       {new Date(m.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                     </span>
-                    <span style={{ color: 'var(--accent-purple)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      VIEW REPORT →
-                    </span>
+                    <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+                      <span 
+                        onClick={(e) => handleDelete(e, m.id)}
+                        style={{ color: 'var(--accent-crimson)', opacity: 0.6, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                        onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseOut={(e) => e.currentTarget.style.opacity = '0.6'}
+                        title="Purge Intel"
+                      >
+                        🗑️
+                      </span>
+                      <span style={{ color: 'var(--accent-purple)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        VIEW REPORT →
+                      </span>
+                    </div>
                   </div>
                 </div>
               </Link>
