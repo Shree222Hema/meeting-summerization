@@ -43,6 +43,7 @@ export default function IngestPage() {
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
+  const [reportTitle, setReportTitle] = useState('');
   const [language, setLanguage] = useState('English');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -114,7 +115,7 @@ export default function IngestPage() {
       const res = await fetch('/api/meetings/synthesize', {
         method: 'POST',
         body: JSON.stringify({
-          title: file ? file.name : (url ? "External Audio Source" : "Manual Text Import"),
+          title: reportTitle.trim() || (file ? file.name : (url ? "YouTube Source" : (text ? (text.slice(0, 45) + (text.length > 45 ? '...' : '')) : "Untitled Intel"))),
           transcript: processedData.transcript,
           summary: processedData.summary,
           sentiment: processedData.sentiment,
@@ -346,6 +347,19 @@ export default function IngestPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             
+            {/* Report Title */}
+            <div className="input-group">
+              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dim)', marginBottom: '0.5rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Report Title (Optional)</label>
+              <input 
+                className="input-futuristic" 
+                placeholder="e.g. Q3 Planning Session, Project Alpha Sync..." 
+                value={reportTitle} 
+                onChange={(e) => setReportTitle(e.target.value)}
+                disabled={loading}
+                style={{ borderBottomColor: reportTitle ? 'var(--accent-cyan)' : 'var(--glass-border)' }}
+              />
+            </div>
+
             {/* Language Selection */}
             <div className="input-group">
               <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dim)', marginBottom: '0.5rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Intelligence Language</label>
