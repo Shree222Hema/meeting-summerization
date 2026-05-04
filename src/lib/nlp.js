@@ -60,10 +60,10 @@ export async function generateSummary(text, language = 'english') {
   const truncatedText = text.substring(0, 3000)
   
   const prompt = language.toLowerCase() === 'kannada' 
-    ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedText}\n\nಸಾರಾಂಶ:`
+    ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ೩-೫ ಪ್ರಮುಖ ಅಂಶಗಳಲ್ಲಿ ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedText}\n\nಸಾರಾಂಶ:`
     : language.toLowerCase() === 'hindi'
-    ? `इस बैठक का सारांश हिंदी में लिखें:\n\n${truncatedText}\n\nसारांश:`
-    : `Summarize the following meeting transcript in English:\n\n${truncatedText}\n\nSummary:`
+    ? `इस बैठक का सारांश ३-५ मुख्य बिंदुओं में हिंदी में लिखें:\n\n${truncatedText}\n\nसारांश:`
+    : `Provide the 3-5 most important key points from this meeting transcript in English as a bulleted list:\n\n${truncatedText}\n\nKey Points:`
   
   const result = await qa(prompt, { max_new_tokens: 150 })
   return result[0].generated_text

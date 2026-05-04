@@ -109,6 +109,43 @@ export default function MeetingDetailsPage() {
     }
   };
 
+  const handleDownload = () => {
+    if (!meeting) return;
+    
+    const content = `
+INTELLIGENCE REPORT: ${meeting.title}
+INDEXED: ${new Date(meeting.created_at).toLocaleString()}
+--------------------------------------------------
+
+EXECUTIVE SUMMARY:
+${meeting.summary || "No summary available."}
+
+TACTICAL ACTION ITEMS:
+${meeting.action_items && meeting.action_items.length > 0 
+  ? meeting.action_items.map((item, i) => `${i+1}. ${item.task} (Assignee: ${item.assignee}, Deadline: ${item.deadline})`).join('\n')
+  : "No action items identified."
+}
+
+SENTIMENT ANALYSIS:
+Label: ${meeting.sentiment_label || "Neutral"}
+Score: ${meeting.sentiment_score || 50}%
+
+--------------------------------------------------
+FULL TRANSCRIPT:
+${meeting.transcript || "No transcript data."}
+    `.trim();
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${meeting.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_report.txt`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
   const toggleNarration = () => {
     if (!window.speechSynthesis) return alert("Speech synthesis not supported.");
     if (isNarrating) {
@@ -279,8 +316,8 @@ export default function MeetingDetailsPage() {
                 )}
              </div>
              <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
-                <button className="btn-innovative" style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem' }}>
-                  DOWNLOAD ARCHIVE
+                <button className="btn-innovative primary-action" onClick={handleDownload} style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem' }}>
+                  DOWNLOAD REPORT
                 </button>
              </div>
           </section>

@@ -81,10 +81,10 @@ self.addEventListener('message', async (event) => {
         });
         const truncatedSummary = cleanedTranscript.substring(0, 3000);
         const summaryPrompt = language.toLowerCase() === 'kannada' 
-          ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedSummary}\n\nಸಾರಾಂಶ:`
+          ? `ಈ ಸಭೆಯ ಸಾರಾಂಶವನ್ನು ೩-೫ ಪ್ರಮುಖ ಅಂಶಗಳಲ್ಲಿ ಕನ್ನಡದಲ್ಲಿ ಬರೆಯಿರಿ:\n\n${truncatedSummary}\n\nಸಾರಾಂಶ:`
           : language.toLowerCase() === 'hindi'
-          ? `इस बैठक का सारांश हिंदी में लिखें:\n\n${truncatedSummary}\n\nसारांश:`
-          : `Summarize the following meeting transcript in English:\n\n${truncatedSummary}\n\nSummary:`;
+          ? `इस बैठक का सारांश ३-५ मुख्य बिंदुओं में हिंदी में लिखें:\n\n${truncatedSummary}\n\nसारांश:`
+          : `Provide the 3-5 most important key points from this meeting transcript in English as a bulleted list:\n\n${truncatedSummary}\n\nKey Points:`;
         const summaryResult = await summaryPipeline(summaryPrompt, { max_new_tokens: 150 });
         const summary = summaryResult[0].generated_text;
 
