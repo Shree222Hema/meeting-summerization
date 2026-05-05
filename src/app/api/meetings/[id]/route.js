@@ -21,7 +21,9 @@ export async function GET(request, { params }) {
       where: { id: meetingId, userId: dbUser.id },
       include: {
         summary: true,
-        actionItems: true
+        actionItems: true,
+        keyDecisions: true,
+        strategicQuestions: true
       }
     });
 
@@ -42,6 +44,14 @@ export async function GET(request, { params }) {
         task: item.task,
         assignee: item.assignee,
         deadline: item.deadline
+      })),
+      key_decisions: meeting.keyDecisions.map(d => ({
+        id: d.id,
+        content: d.content
+      })),
+      strategic_questions: meeting.strategicQuestions.map(q => ({
+        id: q.id,
+        content: q.content
       }))
     });
   } catch (err) {

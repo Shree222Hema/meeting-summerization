@@ -29,6 +29,8 @@ model Meeting {
   
   summary      Summary?
   actionItems  ActionItem[]
+  keyDecisions KeyDecision[]
+  strategicQuestions StrategicQuestion[]
   chunks       MeetingChunk[]
 }
 
@@ -47,6 +49,22 @@ model ActionItem {
   task      String
   assignee  String?
   deadline  String?
+  
+  meetingId Int
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model KeyDecision {
+  id        Int      @id @default(autoincrement())
+  content   String
+  
+  meetingId Int
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model StrategicQuestion {
+  id        Int      @id @default(autoincrement())
+  content   String
   
   meetingId Int
   meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)

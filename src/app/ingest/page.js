@@ -9,6 +9,8 @@ const SYNTHESIS_STEPS = [
   'Generating executive summary...',
   'Analyzing sentiment vectors...',
   'Extracting action items...',
+  'Extracting key decisions...',
+  'Identifying strategic questions...',
   'Building knowledge base...',
   'Persisting to secure archive...',
 ];
@@ -94,7 +96,7 @@ export default function IngestPage() {
           break;
         case 'complete':
           if (window.synthesisWatchdog) clearTimeout(window.synthesisWatchdog);
-          setCurrentStep(6);
+          setCurrentStep(8);
           setStepMessage('Persisting results to server...');
           await persistResults(data);
           break;
@@ -120,6 +122,8 @@ export default function IngestPage() {
           summary: processedData.summary,
           sentiment: processedData.sentiment,
           actionItems: processedData.actionItems,
+          keyDecisions: processedData.keyDecisions,
+          strategicQuestions: processedData.strategicQuestions,
           chunks: processedData.chunks
         }),
         headers: { 'Content-Type': 'application/json' }

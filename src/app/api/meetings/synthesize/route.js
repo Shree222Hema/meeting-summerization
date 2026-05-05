@@ -22,6 +22,8 @@ export async function POST(request) {
       summary, 
       sentiment, 
       actionItems, 
+      keyDecisions,
+      strategicQuestions,
       chunks 
     } = body;
 
@@ -58,6 +60,16 @@ export async function POST(request) {
             deadline: i.deadline || 'TBD'
           }))
         },
+        keyDecisions: {
+          create: (keyDecisions || []).map(d => ({
+            content: d.content
+          }))
+        },
+        strategicQuestions: {
+          create: (strategicQuestions || []).map(q => ({
+            content: q.content
+          }))
+        },
         chunks: {
           create: (chunks || []).map(c => ({
             content: c.content,
@@ -67,7 +79,9 @@ export async function POST(request) {
       },
       include: {
         summary: true,
-        actionItems: true
+        actionItems: true,
+        keyDecisions: true,
+        strategicQuestions: true
       }
     });
 

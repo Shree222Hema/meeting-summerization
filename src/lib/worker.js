@@ -114,8 +114,34 @@ self.addEventListener('message', async (event) => {
           .filter(i => i.length > 5)
           .map(t => ({ task: t, assignee: "Unassigned", deadline: "TBD" }));
 
-        // 5. Embeddings for RAG
-        self.postMessage({ status: 'progress', step: 5, message: 'Building knowledge base...' });
+        // 5. Key Decisions
+        self.postMessage({ status: 'progress', step: 5, message: 'Extracting key decisions...' });
+        const decisionsPrompt = language.toLowerCase() === 'kannada'
+          ? `ಈ ಸಭೆಯಲ್ಲಿ ತೆಗೆದುಕೊಂಡ 2-3 ಪ್ರಮುಖ ನಿರ್ಧಾರಗಳನ್ನು ಪಟ್ಟಿ ಮಾಡಿ:\n\n${truncatedSummary}\n\nನಿರ್ಧಾರಗಳು:`
+          : language.toLowerCase() === 'hindi'
+          ? `इस बैठक में लिए गए 2-3 मुख्य निर्णय सूचीबद्ध करें:\n\n${truncatedSummary}\n\nनिर्णय:`
+          : `List 2-3 key decisions made in this meeting transcript in English:\n\n${truncatedSummary}\n\nKey Decisions:`;
+        const decisionsResult = await summaryPipeline(decisionsPrompt, { max_new_tokens: 100 });
+        const keyDecisions = decisionsResult[0].generated_text.split('\n')
+          .map(i => i.replace(/^[-*•\d. ]+/, '').trim())
+          .filter(i => i.length > 5)
+          .map(c => ({ content: c }));
+
+        // 6. Strategic Questions
+        self.postMessage({ status: 'progress', step: 6, message: 'Identifying strategic questions...' });
+        const questionsPrompt = language.toLowerCase() === 'kannada'
+          ? `ಈ ಪ್ರತಿಲಿಪಿಯಲ್ಲಿ ಎತ್ತಲಾದ 2-3 ಪ್ರಮುಖ ಪ್ರಶ್ನೆಗಳು ಅಥವಾ ಕಾಳಜಿಗಳನ್ನು ಗುರುತಿಸಿ:\n\n${truncatedSummary}\n\nಪ್ರಶ್ನೆಗಳು:`
+          : language.toLowerCase() === 'hindi'
+          ? `इस प्रतिलेख में उठाए गए 2-3 महत्वपूर्ण प्रश्न या चिंताएं पहचानें:\n\n${truncatedSummary}\n\nप्रश्न:`
+          : `Identify 2-3 important questions or concerns raised in this transcript that need follow-up in English:\n\n${truncatedSummary}\n\nStrategic Questions:`;
+        const questionsResult = await summaryPipeline(questionsPrompt, { max_new_tokens: 100 });
+        const strategicQuestions = questionsResult[0].generated_text.split('\n')
+          .map(i => i.replace(/^[-*•\d. ]+/, '').trim())
+          .filter(i => i.length > 5)
+          .map(c => ({ content: c }));
+
+        // 7. Embeddings for RAG
+        self.postMessage({ status: 'progress', step: 7, message: 'Building knowledge base...' });
         const embedder = await EmbeddingPipeline.getInstance(x => {
            if (x.status === 'progress') self.postMessage({ status: 'download', data: x });
         });
@@ -125,7 +151,7 @@ self.addEventListener('message', async (event) => {
           const chunk = chunks[i];
           self.postMessage({ 
             status: 'progress', 
-            step: 5, 
+            step: 7, 
             message: `Building knowledge base: ${i + 1} / ${chunks.length} units...` 
           });
           const emb = await embedder(chunk, { pooling: 'mean', normalize: true });
@@ -139,6 +165,8 @@ self.addEventListener('message', async (event) => {
             summary,
             sentiment,
             actionItems,
+            keyDecisions,
+            strategicQuestions,
             chunks: chunkData
           } 
         });

@@ -120,6 +120,18 @@ INDEXED: ${new Date(meeting.created_at).toLocaleString()}
 EXECUTIVE SUMMARY:
 ${meeting.summary || "No summary available."}
 
+KEY DECISIONS:
+${meeting.key_decisions && meeting.key_decisions.length > 0
+  ? meeting.key_decisions.map((d, i) => `${i+1}. ${d.content}`).join('\n')
+  : "No specific decisions recorded."
+}
+
+STRATEGIC QUESTIONS:
+${meeting.strategic_questions && meeting.strategic_questions.length > 0
+  ? meeting.strategic_questions.map((q, i) => `${i+1}. ${q.content}`).join('\n')
+  : "No follow-up questions identified."
+}
+
 TACTICAL ACTION ITEMS:
 ${meeting.action_items && meeting.action_items.length > 0 
   ? meeting.action_items.map((item, i) => `${i+1}. ${item.task} (Assignee: ${item.assignee}, Deadline: ${item.deadline})`).join('\n')
@@ -234,18 +246,43 @@ ${meeting.transcript || "No transcript data."}
         <div className="fade-up reveal-delay-2" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 0.6fr)', gap: '2rem' }}>
           
           {/* Intelligence Briefing */}
-          <section className="ultra-glass" style={{ padding: '2.5rem', borderLeft: `4px solid ${sentimentColor}` }}>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{ display: 'inline-block', width: '8px', height: '20px', background: 'var(--accent-cyan)', borderRadius: '2px' }}></span>
-              Executive Intelligence Briefing
-            </h2>
-            <p style={{ lineHeight: '2', color: 'var(--text-main)', fontSize: '1.2rem', opacity: 0.9, marginBottom: '2rem' }}>
-              {meeting.summary || "Strategic summary linkage currently unavailable."}
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            <section className="ultra-glass" style={{ padding: '2.5rem', borderLeft: `4px solid ${sentimentColor}` }}>
+              <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ display: 'inline-block', width: '8px', height: '20px', background: 'var(--accent-cyan)', borderRadius: '2px' }}></span>
+                Executive Intelligence Briefing
+              </h2>
+              <p style={{ lineHeight: '2', color: 'var(--text-main)', fontSize: '1.2rem', opacity: 0.9, marginBottom: '2rem' }}>
+                {meeting.summary || "Strategic summary linkage currently unavailable."}
+              </p>
 
-            <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-cyan)', fontWeight: 700, letterSpacing: '1.5px', marginBottom: '1.25rem' }}>Key Decisions</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {meeting.key_decisions && meeting.key_decisions.length > 0 ? meeting.key_decisions.map((d, idx) => (
+                      <div key={idx} style={{ padding: '1rem', background: 'rgba(6,182,212,0.05)', borderRadius: '8px', border: '1px solid rgba(6,182,212,0.1)', fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                         {d.content}
+                      </div>
+                    )) : <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.85rem' }}>No critical decisions logged.</div>}
+                  </div>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-purple)', fontWeight: 700, letterSpacing: '1.5px', marginBottom: '1.25rem' }}>Strategic Questions</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {meeting.strategic_questions && meeting.strategic_questions.length > 0 ? meeting.strategic_questions.map((q, idx) => (
+                      <div key={idx} style={{ padding: '1rem', background: 'rgba(168,85,247,0.05)', borderRadius: '8px', border: '1px solid rgba(168,85,247,0.1)', fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                         {q.content}
+                      </div>
+                    )) : <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.85rem' }}>No follow-up questions identified.</div>}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="ultra-glass" style={{ padding: '2.5rem' }}>
               <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1.5px', marginBottom: '1.5rem' }}>Tactical Deliverables</h3>
-              <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
                 {meeting.action_items && meeting.action_items.length > 0 ? meeting.action_items.map((item, idx) => (
                   <div key={idx} className="ultra-glass" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -259,8 +296,8 @@ ${meeting.transcript || "No transcript data."}
                   <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>No critical targets identified.</div>
                 )}
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
 
           {/* Metrics Intelligence */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
